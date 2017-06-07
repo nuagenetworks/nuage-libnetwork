@@ -1,3 +1,20 @@
+/*
+###########################################################################
+#
+#   Filename:           driver.go
+#
+#   Author:             Siva Teja Areti
+#   Created:            June 6, 2017
+#
+#   Description:        libnetwork driver that runs all components
+#
+###########################################################################
+#
+#              Copyright (c) 2017 Nuage Networks
+#
+###########################################################################
+*/
+
 package driver
 
 import (

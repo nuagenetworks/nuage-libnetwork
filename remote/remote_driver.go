@@ -1,3 +1,20 @@
+/*
+###########################################################################
+#
+#   Filename:           remote_driver.go
+#
+#   Author:             Siva Teja Areti
+#   Created:            June 6, 2017
+#
+#   Description:        libnetwork remote driver
+#
+###########################################################################
+#
+#              Copyright (c) 2017 Nuage Networks
+#
+###########################################################################
+*/
+
 package remote
 
 import (

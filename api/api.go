@@ -1,3 +1,20 @@
+/*
+###########################################################################
+#
+#   Filename:           api.go
+#
+#   Author:             Siva Teja Areti
+#   Created:            June 6, 2017
+#
+#   Description:        libnetwork event API
+#
+###########################################################################
+#
+#              Copyright (c) 2017 Nuage Networks
+#
+###########################################################################
+*/
+
 package api
 
 //VRSEventType defines VRS events
