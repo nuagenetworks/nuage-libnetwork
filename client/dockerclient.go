@@ -1,3 +1,20 @@
+/*
+###########################################################################
+#
+#   Filename:           dockerclient.go
+#
+#   Author:             Siva Teja Areti
+#   Created:            June 6, 2017
+#
+#   Description:        libnetwork docker client API
+#
+###########################################################################
+#
+#              Copyright (c) 2017 Nuage Networks
+#
+###########################################################################
+*/
+
 package client
 
 import (
