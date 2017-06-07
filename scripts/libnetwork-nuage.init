@@ -1,0 +1,61 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          libnetwork-nuage
+# Required-Start:    $local_fs $network $named $time $syslog kubernetes-master
+# Required-Stop:     $local_fs $network $named $time $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Description:       Nuage Kubernetes Monitor
+### END INIT INFO
+
+BIN=/usr/bin/libnetwork-nuage
+RUNAS=root
+
+PIDFILE=/var/run/libnetwork-nuage.pid
+
+start() {
+  if [ -f "$PIDFILE" ] && kill -0 $(cat "$PIDFILE"); then
+    echo 'service libnetwork-nuage already running' >&2
+    return 1
+  fi
+  echo 'Starting service libnetwork-nuage…' >&2
+  local CMD="$BIN -config /etc/default/libnetwork-nuage.yaml &>/dev/null & echo \$!"
+  su -c "$CMD" $RUNAS > "$PIDFILE"
+  echo 'service libnetwork-nuage started' >&2
+}
+
+stop() {
+  if [ ! -f "$PIDFILE" ] || ! kill -0 $(cat "$PIDFILE"); then
+    echo 'service libnetwork-nuage not running' >&2
+    return 1
+  fi
+  echo 'Stopping service libnetwork-nuage…' >&2
+  kill -9 $(cat "$PIDFILE") && rm -f "$PIDFILE"
+  echo 'service libnetwork-nuage stopped' >&2
+}
+
+status() {
+  if [ ! -f "$PIDFILE" ] || ! kill -0 $(cat "$PIDFILE"); then
+    echo 'service libnetwork-nuage not running' >&2
+  else
+    echo 'service libnetwork-nuage is running' >&2
+  fi
+}
+
+case "$1" in
+  start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  status)
+    status
+    ;;
+  restart)
+    stop
+    start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart|status}"
+esac

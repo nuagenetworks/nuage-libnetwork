@@ -1,0 +1,98 @@
+{
+	"ImportPath": "github.com/nuagenetworks/libnetwork-plugin",
+	"GoVersion": "go1.6",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.6.2-10-g51fe59a",
+			"Rev": "51fe59aca108dc5680109e7b2051cbdcfa5a253c"
+		},
+		{
+			"ImportPath": "github.com/cenk/hub",
+			"Comment": "v1.0.0-17-gb864404",
+			"Rev": "b864404b5f990410d56858a1b0a6fac23a85443f"
+		},
+		{
+			"ImportPath": "github.com/cenk/rpc2",
+			"Rev": "7ab76d2e88c77ca1a715756036d8264b2886acd2"
+		},
+		{
+			"ImportPath": "github.com/coreos/go-systemd/activation",
+			"Comment": "v4-103-gbfdc81d",
+			"Rev": "bfdc81d0d7e0fb19447b08571f63b774495251ce"
+		},
+		{
+			"ImportPath": "github.com/coreos/go-systemd/util",
+			"Comment": "v4-103-gbfdc81d",
+			"Rev": "bfdc81d0d7e0fb19447b08571f63b774495251ce"
+		},
+		{
+			"ImportPath": "github.com/coreos/pkg/dlopen",
+			"Rev": "3ac0863d7acf3bc44daf49afef8919af12f704ef"
+		},
+		{
+			"ImportPath": "github.com/docker/go-connections/sockets",
+			"Comment": "v0.2.1-2-g0bad1a3",
+			"Rev": "0bad1a3951398f88ef4dd75fdb42af374430be89"
+		},
+		{
+			"ImportPath": "github.com/docker/go-plugins-helpers/network",
+			"Rev": "f3a3876798ee4f63bee3e7ee8911a2c27e7710b9"
+		},
+		{
+			"ImportPath": "github.com/docker/go-plugins-helpers/sdk",
+			"Rev": "f3a3876798ee4f63bee3e7ee8911a2c27e7710b9"
+		},
+		{
+			"ImportPath": "github.com/docker/go-units",
+			"Comment": "v0.3.1-2-geb879ae",
+			"Rev": "eb879ae3e2b84e2a142af415b679ddeda47ec71c"
+		},
+		{
+			"ImportPath": "github.com/docker/libnetwork/types",
+			"Comment": "v0.8.0-dev.2-315-g82fb373",
+			"Rev": "82fb373e3eaa4e9bbb5b5ac148b0a3a71f80fca6"
+		},
+		{
+			"ImportPath": "github.com/golang/glog",
+			"Rev": "44145f04b68cf362d9c4df2182967c2275eaefed"
+		},
+		{
+			"ImportPath": "github.com/nuagenetworks/libvrsdk/api",
+			"Rev": "c87d9d2782e74ca22da5c2e847665af408a5d9a3"
+		},
+		{
+			"ImportPath": "github.com/nuagenetworks/libvrsdk/ovsdb",
+			"Rev": "c87d9d2782e74ca22da5c2e847665af408a5d9a3"
+		},
+		{
+			"ImportPath": "github.com/opencontainers/runc/libcontainer/user",
+			"Comment": "v0.0.5-12-g3317785",
+			"Rev": "3317785f562b363eb386a2fa4909a55f267088c8"
+		},
+		{
+			"ImportPath": "github.com/samalba/dockerclient",
+			"Rev": "a3036261847103270e9f732509f43b5f98710ace"
+		},
+		{
+			"ImportPath": "github.com/socketplane/libovsdb",
+			"Comment": "v0.1-11-g5113f8f",
+			"Rev": "5113f8fb4d9d374417ab4ce35424fbea1aad7272"
+		},
+		{
+			"ImportPath": "github.com/vishvananda/netlink",
+			"Rev": "edcd99c0881a4de0fdb3818af6b24f4ee6948464"
+		},
+		{
+			"ImportPath": "golang.org/x/net/proxy",
+			"Rev": "c2528b2dd8352441850638a8bb678c2ad056fd3e"
+		},
+		{
+			"ImportPath": "gopkg.in/yaml.v2",
+			"Rev": "d466437aa4adc35830964cffc5b5f262c63ddcb4"
+		}
+	]
+}

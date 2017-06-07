@@ -1,0 +1,13 @@
+vrssocketfile:    "/var/run/openvswitch/db.sock"
+dockersocketfile: "unix:///var/run/docker.sock"
+vrsbridge:      "alubr0"
+loglevel:       "Warn"
+logfilesize:    10
+scope:          "global"
+numofretries:   5
+timeinterval:   100
+username: Y3Nwcm9vdA==
+password: Y3Nwcm9vdA==
+organization: Y3Nw
+url: https://127.0.0.1:8443
+pluginversion: "v1"

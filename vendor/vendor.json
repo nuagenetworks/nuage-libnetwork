@@ -1,0 +1,73 @@
+{
+	"comment": "",
+	"ignore": "",
+	"package": [
+		{
+			"checksumSHA1": "V5fI1L0jZRkPPx0NRSLe3Eqefd0=",
+			"path": "github.com/ccding/go-config-reader/config",
+			"revision": "8b6c2b50197f20da3b1c5944c274c173634dc056",
+			"revisionTime": "2013-08-17T22:59:50Z"
+		},
+		{
+			"checksumSHA1": "MLeXjFDPVrB8bG5qS1GSGWR9yyA=",
+			"path": "github.com/ccding/go-logging/logging",
+			"revision": "0ce5ba613fdd5c3b76310c891ecc6fe0d63af439",
+			"revisionTime": "2016-08-01T04:25:05Z"
+		},
+		{
+			"checksumSHA1": "jZW0YmSE2j+316qebIB/FcrVZ6s=",
+			"path": "github.com/coreos/go-systemd/activation",
+			"revision": "e97b35f834b17eaa82afe3d44715c34736bfa12b",
+			"revisionTime": "2017-02-01T10:47:36Z"
+		},
+		{
+			"checksumSHA1": "LSC93+hh9y73VC9UbbqMGf1WHRQ=",
+			"path": "github.com/coreos/go-systemd/util",
+			"revision": "e97b35f834b17eaa82afe3d44715c34736bfa12b",
+			"revisionTime": "2017-02-01T10:47:36Z"
+		},
+		{
+			"checksumSHA1": "PqfZ1nPth0u742gRe4ochQ16umQ=",
+			"path": "github.com/coreos/pkg/dlopen",
+			"revision": "1c941d73110817a80b9fa6e14d5d2b00d977ce2a",
+			"revisionTime": "2017-02-06T20:20:45Z"
+		},
+		{
+			"checksumSHA1": "ZFH8tmGzjtf98mOPUsKjmheTtLc=",
+			"path": "github.com/kardianos/osext",
+			"revision": "9b883c5eb462dd5cb1b0a7a104fe86bc6b9bd391",
+			"revisionTime": "2017-02-07T19:16:55Z"
+		},
+		{
+			"checksumSHA1": "8v30FEF89m/pmmUbj+UPgfOjGh8=",
+			"path": "github.com/mitchellh/mapstructure",
+			"revision": "db1efb556f84b25a0a13a04aad883943538ad2e0",
+			"revisionTime": "2017-01-25T05:19:37Z"
+		},
+		{
+			"checksumSHA1": "eXg+PxGdFrqXy9RC0fjXIuOkgWw=",
+			"path": "github.com/nuagenetworks/go-bambou/bambou",
+			"revision": "9d9e0a211749c681fa775a4fe119239cc90b459d",
+			"revisionTime": "2016-03-16T05:07:43Z"
+		},
+		{
+			"checksumSHA1": "LFv3Gc2VzHSuXYYRe32bWwdU3jY=",
+			"path": "github.com/nuagenetworks/vspk-go/vspk",
+			"revision": "9765f5c99f377e5069e7428424c1fdd41732955a",
+			"revisionTime": "2016-12-23T17:27:46Z"
+		},
+		{
+			"checksumSHA1": "88lxkrVVZyBqOBOFnNMBwEexiLY=",
+			"path": "golang.org/x/net/context",
+			"revision": "a625e3953219464fdd5611bb48bf87c927717295",
+			"revisionTime": "2016-10-18T08:54:36Z"
+		},
+		{
+			"checksumSHA1": "yawc7Ht28nifklkJN95wdGVUsL8=",
+			"path": "gopkg.in/natefinch/lumberjack.v2",
+			"revision": "dd45e6a67c53f673bb49ca8a001fd3a63ceb640e",
+			"revisionTime": "2016-11-04T13:48:45Z"
+		}
+	],
+	"rootPath": "github.com/nuagenetworks/libnetwork-nuage"
+}
