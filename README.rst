@@ -42,6 +42,24 @@ Starting from VSP 4.0.R6.1, libnetwork plugin supports built in IPAM driver wher
 
 Nuage libnetwork plugin is qualified with Docker Version 1.12.1 and API Version 1.24.
 
+Building Nuage LibNetwork Drivers
+-----------------------------------
+- Assumes packages git, golang, rpmbuild are already available on the host and some working knowledge on building go packages.
+- Before proceeding with any of the build steps, clone nuage-libnetwork repo into GO workspace.
+Building RPM file
+^^^^^^^^^^^^^^^^^
+- Set the version required for the rpm: export version=`desired rpm version`
+- Update the `desired rpm version` in rpmbuild/nuage-libnetwork.spec file
+- Run ./scripts/buildRPM.sh to generate RPMs under rpmbuild directory on your host
+Building Container image
+^^^^^^^^^^^^^^^^^^^^^^^^
+- Set the tag required for container: export version=`desired container tag`
+- Run ./scripts/create-docker-image.sh to generate tar of container under current directory
+Building binaries
+^^^^^^^^^^^^^^^^^
+- Run "go build" to build the binary in the current directory
+- If compilation is succesful, `nuage-libnetwork` binary will be created in current directory
+
 Installing Nuage LibNetwork Drivers
 -----------------------------------
 
@@ -166,6 +184,39 @@ Installation using Docker Image
    ::
 
       docker run -v /usr/bin/:/usr/bin/ -v /usr/lib64/:/usr/lib64 -v /var/run:/var/run -v /var/log:/var/log -v /etc/default:/etc/default --net=host --privileged -dt nuage-plugin:4.0R7
+
+Installation using binary
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:Step 1: Start the docker daemon. If the plugin is to be run in "local" scope, then docker daemon can be started on each host without any extra options. In order to run the plugin with "global" scope, docker-engines on multiple servers need to be started with a backend-store. Following commands show the commands to start docker daemon with consul.
+
+   ::
+
+      [root@server1:~]# docker daemon --cluster-store=consul://$CONSULSERVER:8500 --cluster-advertise=$server1:2376
+      [root@server2:~]# docker daemon --cluster-store=consul://$CONSULSERVER:8500 --cluster-advertise=$server2:2376
+
+:Step 2: Configure the plugin parameters inside the YAML configuration file. "loglevel" can be "Info", "Debug", "Warn" or "Error" and "scope" can be "local" or "global". 'username', 'password' and 'organization' must be base64 encoded values of their string values. Values shown below are default values that are used if there are no specified values. A sample YAML configuration file for plugin input parameters looks like the following:
+
+   ::
+
+      [root@server1 ~]# cat /tmp/nuage-libnetwork.yaml
+      vrsendpoint:    "/var/run/openvswitch/db.sock"
+      dockerdndpoint: "unix:///var/run/docker.sock"
+      vrsbridge:      "alubr0"
+      loglevel:       "Warn"
+      scope:          "global"
+      numofretries:   5
+      timeinterval:   100
+      username: Y3Nwcm9vdA==
+      password: Y3Nwcm9vdA==
+      organization: Y3Nw
+      url: https://127.0.0.1:8443
+
+:Step 4: Start the Nuage Libnetwork plugin. Start the plugin on each host on which it has to run using the following command.
+
+   ::
+
+      $NUAGE_LIBNETWORK_REPO/nuage-libnetwork -config /tmp/nuage-libnetwork.yaml &
 
 Notes
 ^^^^^
