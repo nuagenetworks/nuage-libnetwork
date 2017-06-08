@@ -1,16 +1,16 @@
-%define libnetwork_nuage_binary   libnetwork-nuage
-%define libnetwork_nuage_service  libnetwork-nuage.service
-%define libnetwork_nuage_yaml   libnetwork-nuage.yaml
-%define libnetwork_nuage_service_file scripts/libnetwork-nuage.service
+%define libnetwork_nuage_binary   nuage-libnetwork
+%define libnetwork_nuage_service  nuage-libnetwork.service
+%define libnetwork_nuage_yaml   nuage-libnetwork.yaml
+%define libnetwork_nuage_service_file scripts/nuage-libnetwork.service
 %undefine _missing_build_ids_terminate_build
 
-Name: libnetwork-nuage
+Name: nuage-libnetwork
 Version: 0.0
 Release: 1%{?dist}
 Summary: Nuage Libnetwork Plugin
 Group: System Environments/Daemons  
 License: ALU EULA and ASL 2.0   
-Source0: libnetwork-nuage-%{version}.tar.gz
+Source0: nuage-libnetwork-%{version}.tar.gz
 
 BuildRequires:  %{?go_compiler:compiler(go_compiler)}%{!?go_compiler:golang}
 

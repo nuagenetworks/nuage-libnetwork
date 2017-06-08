@@ -4,9 +4,9 @@ Wants=docker.service
 After=network.target docker.service
 
 [Service]
-ExecStart=/usr/bin/libnetwork-nuage -config /etc/default/libnetwork-nuage.yaml
+ExecStart=/usr/bin/nuage-libnetwork -config /etc/default/nuage-libnetwork.yaml
 Type=simple
-PIDFile=/var/run/libnetwork-nuage/libnetwork-nuage.pid
+PIDFile=/var/run/nuage-libnetwork/nuage-libnetwork.pid
 Restart=always
 
 [Install]

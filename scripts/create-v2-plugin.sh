@@ -24,9 +24,9 @@ cat <<EOF > $TMPDIR/config.json
     "Description": "Docker 1.13 Remote Driver",
     "Documentation": "https://docs.docker.com/engine/extend/plugins/",
     "Entrypoint": [
-        "/libnetwork-nuage", 
+        "/nuage-libnetwork", 
         "-config", 
-        "/etc/default/libnetwork-nuage.yaml"
+        "/etc/default/nuage-libnetwork.yaml"
     ],
     "Network": {
         "type": "host"

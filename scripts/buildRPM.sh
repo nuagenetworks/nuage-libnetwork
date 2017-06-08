@@ -20,9 +20,8 @@ rm -rf /tmp/nuage-libnetwork*
 
 cd $GOPATH/src/github.com/nuagenetworks/nuage-libnetwork
 go build
-cp nuage-libnetwork libnetwork-nuage
 
 cd /tmp
-cp -r $GOPATH/src/github.com/nuagenetworks/nuage-libnetwork libnetwork-nuage-${version}
-tar -czvf $HOME/rpmbuild/SOURCES/libnetwork-nuage-${version}.tar.gz libnetwork-nuage-${version}
-rpmbuild --nodeps -ba $GOPATH/src/github.com/nuagenetworks/nuage-libnetwork/rpmbuild/libnetwork-nuage.spec
+cp -r $GOPATH/src/github.com/nuagenetworks/nuage-libnetwork nuage-libnetwork-${version}
+tar -czvf $HOME/rpmbuild/SOURCES/nuage-libnetwork-${version}.tar.gz nuage-libnetwork-${version}
+rpmbuild --nodeps -ba $GOPATH/src/github.com/nuagenetworks/nuage-libnetwork/rpmbuild/nuage-libnetwork.spec
