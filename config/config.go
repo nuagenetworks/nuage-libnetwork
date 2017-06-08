@@ -31,8 +31,8 @@ import (
 
 //Config data used across packages
 const (
-	LOGDIR               = "/var/log/libnetwork-nuage"
-	LOGFILE              = "/var/log/libnetwork-nuage/libnetwork-nuage.log"
+	LOGDIR               = "/var/log/nuage-libnetwork"
+	LOGFILE              = "/var/log/nuage-libnetwork/nuage-libnetwork.log"
 	PluginDir            = "/run/docker/plugins"
 	PluginName           = "nuage"
 	ContainerIfacePrefix = "eth"
