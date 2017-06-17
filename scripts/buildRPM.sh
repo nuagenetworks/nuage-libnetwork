@@ -12,10 +12,10 @@ if [ -z ${version} ]; then
     exit 1
 fi
 
-rm -rf ~/rpmbuild/BUILD/libnetwork*
-rm -rf ~/rpmbuild/SOURCES/libnetwork*
-rm -rf ~/rpmbuild/RPMS/x86_64/libnetwork*
-rm -rf ~/rpmbuild/SRPMS/libnetwork*
+rm -rf ~/rpmbuild/BUILD/nuage-libnetwork*
+rm -rf ~/rpmbuild/SOURCES/nuage-libnetwork*
+rm -rf ~/rpmbuild/RPMS/x86_64/nuage-libnetwork*
+rm -rf ~/rpmbuild/SRPMS/nuage-libnetwork*
 rm -rf /tmp/nuage-libnetwork*
 
 cd $GOPATH/src/github.com/nuagenetworks/nuage-libnetwork
