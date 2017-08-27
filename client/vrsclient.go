@@ -319,11 +319,13 @@ func (nvrsc *NuageVRSClient) auditOVSDB() error {
 			}
 
 			for _, portName := range portNames {
-				containerInfo[nuageConfig.BridgePortKey] = portName
-				containerInfo[nuageConfig.UUIDKey] = entity
-				err := nvrsc.deleteEntries(containerInfo)
-				if err != nil {
-					log.Errorf("Deleting entries in audit failed with error %v", err)
+				if strings.HasPrefix(portName, nuageConfig.BasePrefix) { //manage ports with only libnetwork prefix
+					containerInfo[nuageConfig.BridgePortKey] = portName
+					containerInfo[nuageConfig.UUIDKey] = entity
+					err := nvrsc.deleteEntries(containerInfo)
+					if err != nil {
+						log.Errorf("Deleting entries in audit failed with error %v", err)
+					}
 				}
 			}
 		}
