@@ -191,6 +191,7 @@ func (nuagedocker *NuageDockerClient) GetContainerInspect(uuid string) (types.Co
 
 //GetNetworkConnectEvents listens for event when a container is connected to "nuage" network
 func (nuagedocker *NuageDockerClient) GetNetworkConnectEvents() {
+	log.Debugf("docker listening for network connect events")
 	filterArgs := filters.NewArgs()
 	filterArgs.Add("type", "network")
 	filterArgs.Add("event", "connect")
@@ -204,7 +205,10 @@ func (nuagedocker *NuageDockerClient) GetNetworkConnectEvents() {
 		case eventMsg := <-eventsChanRO:
 			if eventMsg.Actor.Attributes["type"] == nuageConfig.DockerNetworkType[nuagedocker.pluginVersion] {
 				log.Debugf("got docker event %+v", eventMsg)
-				go nuagedocker.processEvent(eventMsg)
+				dockerResp := nuageApi.DockerChanRequest(nuagedocker.dockerChannel, nuageApi.DockerNetworkConnectEvent, eventMsg)
+				if dockerResp.Error != nil {
+					log.Errorf("handling docker event %+v failed with error: %v", eventMsg, dockerResp.Error)
+				}
 			}
 		case <-errChan:
 			nuagedocker.connectionRetry <- true
@@ -227,6 +231,7 @@ func (nuagedocker *NuageDockerClient) GetOptsAllNetworks() (map[string]*nuageCon
 }
 
 func (nuagedocker *NuageDockerClient) buildCache() {
+	log.Debugf("building cache from docker")
 	networkList, err := nuagedocker.dockerNetworkList()
 	if err != nil {
 		log.Errorf("Fetching network list from docker failed with error %v", err)
@@ -331,9 +336,13 @@ func checkEnvVar(key string, envVars []string) (string, bool) {
 func (nuagedocker *NuageDockerClient) Start() {
 	log.Infof("Starting docker client")
 
-	nuagedocker.buildCache()
+	go func() {
+		<-nuagedocker.connectionActive
+		go nuagedocker.buildCache()
+		go nuagedocker.GetNetworkConnectEvents()
+	}()
 
-	go nuagedocker.GetNetworkConnectEvents()
+	nuagedocker.handleConnectionRetry()
 
 	for {
 		select {
@@ -348,31 +357,26 @@ func (nuagedocker *NuageDockerClient) Start() {
 }
 
 func (nuagedocker *NuageDockerClient) handleDockerEvent(event *nuageApi.DockerEvent) {
+	var data interface{}
+	var err error
 	log.Debugf("Received a docker event %+v", event)
 	switch event.EventType {
 	case nuageApi.DockerCheckNetworkListEvent:
-		isOverlapNetwork, err := nuagedocker.CheckNetworkList(event.DockerReqObject.(*nuageConfig.NuageNetworkParams))
-		event.DockerRespObjectChan <- &nuageApi.DockerRespObject{DockerData: isOverlapNetwork, Error: err}
-
+		data, err = nuagedocker.CheckNetworkList(event.DockerReqObject.(*nuageConfig.NuageNetworkParams))
 	case nuageApi.DockerNetworkIDInspectEvent:
-		networkInspect, err := nuagedocker.GetNetworkOptsFromNetworkID(event.DockerReqObject.(string))
-		event.DockerRespObjectChan <- &nuageApi.DockerRespObject{DockerData: networkInspect, Error: err}
-
+		data, err = nuagedocker.GetNetworkOptsFromNetworkID(event.DockerReqObject.(string))
 	case nuageApi.DockerPoolIDNetworkOptsEvent:
-		networkInfo, err := nuagedocker.GetNetworkOptsFromPoolID(event.DockerReqObject.(string))
-		event.DockerRespObjectChan <- &nuageApi.DockerRespObject{DockerData: networkInfo, Error: err}
-
+		data, err = nuagedocker.GetNetworkOptsFromPoolID(event.DockerReqObject.(string))
 	case nuageApi.DockerContainerListEvent:
-		containerList, err := nuagedocker.GetRunningContainerList()
-		event.DockerRespObjectChan <- &nuageApi.DockerRespObject{DockerData: containerList, Error: err}
-
+		data, err = nuagedocker.GetRunningContainerList()
 	case nuageApi.DockerGetOptsAllNetworksEvent:
-		networkParamsTable, err := nuagedocker.GetOptsAllNetworks()
-		event.DockerRespObjectChan <- &nuageApi.DockerRespObject{DockerData: networkParamsTable, Error: err}
-
+		data, err = nuagedocker.GetOptsAllNetworks()
+	case nuageApi.DockerNetworkConnectEvent:
+		nuagedocker.processEvent(event.DockerReqObject.(events.Message))
 	default:
 		log.Errorf("NuageDockerClient: unknown api invocation")
 	}
+	event.DockerRespObjectChan <- &nuageApi.DockerRespObject{DockerData: data, Error: err}
 	log.Debugf("Served docker event %+v", event)
 }
 

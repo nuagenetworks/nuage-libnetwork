@@ -311,7 +311,7 @@ func IsSameNetworkOpts(opts1, opts2 *NuageNetworkParams) bool {
 //MD5Hash generates md5 hash string for given network options
 func MD5Hash(networkOpts *NuageNetworkParams) string {
 	str := networkOpts.Organization + networkOpts.Domain +
-		networkOpts.SubnetName + networkOpts.SubnetCIDR
+		networkOpts.SubnetName
 	return fmt.Sprintf("%x", md5.Sum([]byte(str)))
 }
 
