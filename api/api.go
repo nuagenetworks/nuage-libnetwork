@@ -22,10 +22,11 @@ type VRSEventType string
 
 //VRS event definitions
 const (
-	VRSAddEvent    VRSEventType = "ADD"
-	VRSUpdateEvent VRSEventType = "UPDATE"
-	VRSDeleteEvent VRSEventType = "DELETE"
-	VRSAuditEvent  VRSEventType = "AUDIT"
+	VRSAddEvent               VRSEventType = "ADD"
+	VRSUpdateEvent            VRSEventType = "UPDATE"
+	VRSDeleteEvent            VRSEventType = "DELETE"
+	VRSAuditEvent             VRSEventType = "AUDIT"
+	VRSPoolIDNetworkOptsEvent VRSEventType = "NETWORKOPTS"
 )
 
 //VSDEventType defines VSD events

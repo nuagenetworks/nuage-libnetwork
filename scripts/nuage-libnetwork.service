@@ -1,7 +1,8 @@
 [Unit]
 Description=Nuage libnetwork plugin for docker
 Wants=docker.service
-After=network.target docker.service
+After=network.target
+Before=docker.service
 
 [Service]
 ExecStart=/usr/bin/nuage-libnetwork -config /etc/default/nuage-libnetwork.yaml

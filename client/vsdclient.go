@@ -341,6 +341,9 @@ func (nuagevsd *NuageVSDClient) updateContainer(vsdReq nuageConfig.NuageEventMet
 	containerInfo[nuageConfig.NameKey] = container.Name
 	containerInfo[nuageConfig.MACKey] = containerInterface.MAC
 	containerInfo[nuageConfig.BridgePortKey] = containerInterface.Name
+	containerInfo[nuageConfig.EnterpriseKey] = vsdReq.NetworkParams.Organization
+	containerInfo[nuageConfig.DomainKey] = vsdReq.NetworkParams.Domain
+	containerInfo[nuageConfig.NetworkKey] = vsdReq.NetworkParams.SubnetName
 	vrsResp := nuageApi.VRSChanRequest(nuagevsd.vrsChannel, nuageApi.VRSAddEvent, containerInfo)
 	if vrsResp.Error != nil {
 		return vrsResp.Error
@@ -605,9 +608,6 @@ func (nuagevsd *NuageVSDClient) buildCache() {
 		return
 	}
 
-	dockerResponse := nuageApi.DockerChanRequest(nuagevsd.dockerChannel, nuageApi.DockerContainerListEvent, nil)
-	dockerContainerList := dockerResponse.DockerData.([]types.Container)
-
 	for _, container := range vsdContainerList {
 		if len(container.Interfaces) == 0 {
 			continue
@@ -619,8 +619,26 @@ func (nuagevsd *NuageVSDClient) buildCache() {
 			SubnetName:   containerInterface.NetworkName,
 		}
 		nuagevsd.ipToVSDContainerMap.Write(networkParams.String()+"-"+containerInterface.IPAddress, container)
+	}
+
+	dockerResponse := nuageApi.DockerChanRequest(nuagevsd.dockerChannel, nuageApi.DockerContainerListEvent, nil)
+	if dockerResponse.Error != nil {
+		log.Warnf("Fetching docker list failed with error: %v", dockerResponse.Error)
+	}
+	dockerContainerList := dockerResponse.DockerData.([]types.Container)
+
+	for _, container := range vsdContainerList {
 		if container.Name != container.UUID {
 			continue
+		}
+		if len(container.Interfaces) == 0 {
+			continue
+		}
+		containerInterface := container.Interfaces[0].(*vspk.ContainerInterface)
+		networkParams := &nuageConfig.NuageNetworkParams{
+			Organization: container.EnterpriseName,
+			Domain:       containerInterface.DomainName,
+			SubnetName:   containerInterface.NetworkName,
 		}
 		for _, dockerContainer := range dockerContainerList {
 			for _, endpointSettings := range dockerContainer.NetworkSettings.Networks {
@@ -840,7 +858,7 @@ func (nuagevsd *NuageVSDClient) makeVSDCall(vsdRequest func() *bambou.Error, msg
 func (nuagevsd *NuageVSDClient) Start() {
 	log.Infof("starting vsd client")
 	nuagevsd.intfSeqNum = nuagevsd.getInitialSequenceNumber()
-	nuagevsd.buildCache()
+	go nuagevsd.buildCache()
 
 	for {
 		select {

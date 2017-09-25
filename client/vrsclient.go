@@ -18,6 +18,8 @@
 package client
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types"
@@ -26,6 +28,7 @@ import (
 	"github.com/nuagenetworks/libvrsdk/api/port"
 	nuageApi "github.com/nuagenetworks/nuage-libnetwork/api"
 	nuageConfig "github.com/nuagenetworks/nuage-libnetwork/config"
+	"github.com/nuagenetworks/nuage-libnetwork/utils"
 	"github.com/vishvananda/netlink"
 	"os/exec"
 	"regexp"
@@ -35,14 +38,15 @@ import (
 
 //NuageVRSClient contains the relavent data to hold VRS client
 type NuageVRSClient struct {
-	bridgeName       string
-	vrsSocketFile    string
-	connectionRetry  chan bool
-	connectionActive chan bool
-	stop             chan bool
-	vrsChannel       chan *nuageApi.VRSEvent
-	dockerChannel    chan *nuageApi.DockerEvent
-	vrsConnection    vrsSDK.VRSConnection
+	bridgeName         string
+	vrsSocketFile      string
+	connectionRetry    chan bool
+	connectionActive   chan bool
+	stop               chan bool
+	vrsChannel         chan *nuageApi.VRSEvent
+	dockerChannel      chan *nuageApi.DockerEvent
+	vrsConnection      vrsSDK.VRSConnection
+	networkParamsTable *utils.HashMap
 }
 
 //NewNuageVRSClient factory method of NuageVRSClient structure
@@ -56,6 +60,7 @@ func NewNuageVRSClient(config *nuageConfig.NuageLibNetworkConfig, channels *nuag
 	nvrsc.dockerChannel = channels.DockerChannel
 	nvrsc.connectionRetry = make(chan bool)
 	nvrsc.connectionActive = make(chan bool)
+	nvrsc.networkParamsTable = utils.NewHashMap()
 	nvrsc.vrsConnection, err = connectToVRS(nvrsc.vrsSocketFile)
 	if err != nil {
 		log.Errorf("Connection to VRS failed with error: %v", err)
@@ -171,16 +176,81 @@ func (nvrsc *NuageVRSClient) AddPortToBridge(containerInfo map[string]string) er
 	port := containerInfo[nuageConfig.BridgePortKey]
 	nvrsc.makeVRSCall(
 		func() ([]byte, error) {
-			cmdstr := fmt.Sprintf("/usr/bin/ovs-vsctl --no-wait --if-exists del-port %s %s -- add-port %s %s -- set interface %s 'external-ids={vm-uuid=%s,vm-name=%s}'",
-				nvrsc.bridgeName, port, nvrsc.bridgeName, port, port, containerInfo[nuageConfig.UUIDKey], containerInfo[nuageConfig.NameKey])
+			externalIDStr := fmt.Sprintf("%s=%s,", nuageConfig.EnterpriseKey, strings.Replace(containerInfo[nuageConfig.EnterpriseKey], " ", "\\ ", -1))
+			externalIDStr += fmt.Sprintf("%s=%s,", nuageConfig.DomainKey, strings.Replace(containerInfo[nuageConfig.DomainKey], " ", "\\ ", -1))
+			externalIDStr += fmt.Sprintf("%s=%s", nuageConfig.NetworkKey, strings.Replace(containerInfo[nuageConfig.NetworkKey], " ", "\\ ", -1))
+			cmdstr := fmt.Sprintf("/usr/bin/ovs-vsctl --no-wait --if-exists del-port %s %s -- add-port %s %s -- set interface %s 'external-ids={vm_uuid=%s,vm_name=%s,%s}'", nvrsc.bridgeName, port, nvrsc.bridgeName, port, port, containerInfo[nuageConfig.UUIDKey], containerInfo[nuageConfig.NameKey], externalIDStr)
+			log.Debugf("%s", cmdstr)
 			output, err = exec.Command("bash", "-c", cmdstr).CombinedOutput()
 			return output, err
 		})
 	if err != nil {
-		return fmt.Errorf("Problem adding veth port to alubr0 on VRS output = %v, err = %v", output, err)
+		return fmt.Errorf("Problem adding veth port to alubr0 on VRS output = %s, err = %v", output, err)
 	}
 
+	params := &nuageConfig.NuageNetworkParams{
+		Organization: containerInfo[nuageConfig.EnterpriseKey],
+		Domain:       containerInfo[nuageConfig.DomainKey],
+		SubnetName:   containerInfo[nuageConfig.NetworkKey],
+	}
+	nvrsc.networkParamsTable.Write(nuageConfig.MD5Hash(params), params)
 	return nil
+}
+
+func (nvrsc *NuageVRSClient) GetNetworkOptsFromPoolID(poolID string) (*nuageConfig.NuageNetworkParams, error) {
+	if params, ok := nvrsc.networkParamsTable.Read(poolID); ok {
+		log.Debugf("network params %v for pool id %s", params.(*nuageConfig.NuageNetworkParams), poolID)
+		return params.(*nuageConfig.NuageNetworkParams), nil
+	} else {
+		log.Debugf("network params not found for pool id %s", poolID)
+		return nil, fmt.Errorf("did not find network params for the given pool id")
+	}
+}
+
+func (nvrsc *NuageVRSClient) buildCache() {
+	var err error
+	var output []byte
+	log.Debugf("Building cache from OVSDB")
+	nvrsc.makeVRSCall(
+		func() ([]byte, error) {
+			cmdStr := "/usr/bin/ovs-vsctl --columns=external-ids list Interface"
+			output, err = exec.Command("bash", "-c", cmdStr).CombinedOutput()
+			return output, err
+		})
+	if err != nil {
+		log.Fatalf("Building cache from OVSDB failed with error: %v", err)
+		return
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(output))
+	for scanner.Scan() {
+		text := scanner.Text()
+		if len(text) == 0 {
+			continue
+		}
+		re := regexp.MustCompile("{(.*)}")
+		matches := re.FindStringSubmatch(text)
+		replacer := strings.NewReplacer("\"", "")
+		var org, domain, subnetName string
+		for _, str := range strings.Split(matches[1], ",") {
+			kv := strings.Split(strings.TrimSpace(str), "=")
+			switch kv[0] {
+			case nuageConfig.EnterpriseKey:
+				org = replacer.Replace(kv[1])
+			case nuageConfig.DomainKey:
+				domain = replacer.Replace(kv[1])
+			case nuageConfig.NetworkKey:
+				subnetName = replacer.Replace(kv[1])
+			}
+		}
+		if org == "" || domain == "" || subnetName == "" {
+			log.Errorf("org/domain/subnet not found in external ids %s", text)
+			continue
+		}
+		params := &nuageConfig.NuageNetworkParams{Organization: org, Domain: domain, SubnetName: subnetName}
+		nvrsc.networkParamsTable.Write(nuageConfig.MD5Hash(params), params)
+		log.Debugf("added pool id %s with params %v", nuageConfig.MD5Hash(params), params)
+	}
 }
 
 func (nvrsc *NuageVRSClient) createEntries(containerInfo map[string]string) error {
@@ -190,23 +260,18 @@ func (nvrsc *NuageVRSClient) createEntries(containerInfo map[string]string) erro
 		log.Errorf("Adding port %s to bridge %s failed with error: %v", containerInfo[nuageConfig.BridgePortKey], nvrsc.bridgeName, err)
 		return err
 	}
-	log.Debugf("Container %s: Adding port to bridge complete", containerInfo[nuageConfig.UUIDKey])
 
-	log.Debugf("Container %s: Adding port to port table", containerInfo[nuageConfig.UUIDKey])
 	err = nvrsc.CreatePortEntry(containerInfo)
 	if err != nil {
 		log.Errorf("Creating port entries for %+v failed with error: %v", containerInfo, err)
 		return err
 	}
-	log.Debugf("Container %s: Adding port to port table complete", containerInfo[nuageConfig.UUIDKey])
 
-	log.Debugf("Container %s: Adding entity to entity table complete", containerInfo[nuageConfig.UUIDKey])
 	err = nvrsc.CreateEntityEntry(containerInfo)
 	if err != nil {
 		log.Errorf("Creating entityr entries for %+v failed with error: %v", containerInfo, err)
 		return err
 	}
-	log.Debugf("Container %s: Adding entity to entity table complete", containerInfo[nuageConfig.UUIDKey])
 	return nil
 }
 
@@ -221,22 +286,16 @@ func (nvrsc *NuageVRSClient) deleteEntries(containerInfo map[string]string) erro
 		log.Errorf("Deleting entity table entries for %+v failed with error: %v", containerInfo, err)
 		return err
 	}
-	log.Debugf("Container %s: Deleting entity from entity table complete", containerInfo[nuageConfig.UUIDKey])
 
-	log.Debugf("Container %s: Deleting port from port table", containerInfo[nuageConfig.UUIDKey])
 	err = nvrsc.DeletePortEntry(containerInfo)
 	if err != nil {
 		log.Errorf("Deleting port table entries for %+v failed with error: %v", containerInfo, err)
 		return err
 	}
-	log.Debugf("Container %s: Deleting port from port table complete", containerInfo[nuageConfig.UUIDKey])
-
-	log.Debugf("Container %s: Deleting port from bridge", containerInfo[nuageConfig.UUIDKey])
 	err = nvrsc.RemoveVethPortFromVRS(containerInfo[nuageConfig.BridgePortKey])
 	if err != nil {
 		log.Errorf("Unable to delete veth port %s as part of cleanup from alubr0: %v", containerInfo[nuageConfig.BridgePortKey], err)
 	}
-	log.Debugf("Container %s: Deleting port from bridge complete", containerInfo[nuageConfig.UUIDKey])
 
 	err = nvrsc.DeleteVethPair(containerInfo)
 	if err != nil {
@@ -336,6 +395,7 @@ func (nvrsc *NuageVRSClient) auditOVSDB() error {
 //Start listens for events on VRS Channel
 func (nvrsc *NuageVRSClient) Start() {
 	log.Infof("starting vrs client")
+	nvrsc.buildCache()
 	for {
 		select {
 		case vrsEvent := <-nvrsc.vrsChannel:
@@ -349,27 +409,24 @@ func (nvrsc *NuageVRSClient) Start() {
 }
 
 func (nvrsc *NuageVRSClient) handleVRSEvent(event *nuageApi.VRSEvent) {
+	var data interface{}
+	var err error
 	log.Debugf("Received VRS event %+v", event)
 	switch event.EventType {
 	case nuageApi.VRSAddEvent:
-		err := nvrsc.createEntries(event.VRSReqObject.(map[string]string))
-		event.VRSRespObjectChan <- &nuageApi.VRSRespObject{Error: err}
-
+		err = nvrsc.createEntries(event.VRSReqObject.(map[string]string))
 	case nuageApi.VRSUpdateEvent:
-		err := nvrsc.updateEntries(event.VRSReqObject.(map[string]string))
-		event.VRSRespObjectChan <- &nuageApi.VRSRespObject{Error: err}
-
+		err = nvrsc.updateEntries(event.VRSReqObject.(map[string]string))
 	case nuageApi.VRSDeleteEvent:
-		err := nvrsc.deleteEntries(event.VRSReqObject.(map[string]string))
-		event.VRSRespObjectChan <- &nuageApi.VRSRespObject{Error: err}
-
+		err = nvrsc.deleteEntries(event.VRSReqObject.(map[string]string))
 	case nuageApi.VRSAuditEvent:
-		err := nvrsc.auditOVSDB()
-		event.VRSRespObjectChan <- &nuageApi.VRSRespObject{Error: err}
-
+		err = nvrsc.auditOVSDB()
+	case nuageApi.VRSPoolIDNetworkOptsEvent:
+		data, err = nvrsc.GetNetworkOptsFromPoolID(event.VRSReqObject.(string))
 	default:
 		log.Errorf("unknown api invocation")
 	}
+	event.VRSRespObjectChan <- &nuageApi.VRSRespObject{VRSData: data, Error: err}
 	log.Debugf("Served VRS event %+v", event)
 }
 

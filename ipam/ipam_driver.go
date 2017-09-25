@@ -41,6 +41,7 @@ type NuageIPAMDriver struct {
 	stop          chan bool
 	dockerChannel chan *nuageApi.DockerEvent
 	vsdChannel    chan *nuageApi.VSDEvent
+	vrsChannel    chan *nuageApi.VRSEvent
 }
 
 //NewNuageIPAMDriver factory method for IPAM Driver
@@ -49,6 +50,7 @@ func NewNuageIPAMDriver(config *nuageConfig.NuageLibNetworkConfig, channels *nua
 	nuageipam.stop = channels.Stop
 	nuageipam.dockerChannel = channels.DockerChannel
 	nuageipam.vsdChannel = channels.VSDChannel
+	nuageipam.vrsChannel = channels.VRSChannel
 	nuageipam.vsdNetworkMap = utils.NewHashMap()
 	nuageipam.pluginVersion = config.PluginVersion
 	nuageipam.registerCalls(serveMux)
@@ -169,7 +171,7 @@ func (nuageipam *NuageIPAMDriver) ReleasePool(w http.ResponseWriter, req *http.R
 	}
 
 	log.Infof("Releasing pool of addresses")
-	networkParams, err := nuageipam.getNetworkInfo(r.PoolID)
+	networkParams, err := nuageipam.getNetworkInfo(r.PoolID, "docker")
 	if err != nil {
 		log.Errorf("populating network params failed with error: %v", err)
 	} else {
@@ -203,7 +205,7 @@ func (nuageipam *NuageIPAMDriver) RequestAddress(w http.ResponseWriter, req *htt
 			return
 		}
 	} else {
-		networkParams, err := nuageipam.getNetworkInfo(r.PoolID)
+		networkParams, err := nuageipam.getNetworkInfo(r.PoolID, "docker")
 		if err != nil {
 			utils.HandleHTTPError(w, "Populating network params", err)
 			return
@@ -246,7 +248,7 @@ func (nuageipam *NuageIPAMDriver) ReleaseAddress(w http.ResponseWriter, req *htt
 	}
 
 	log.Infof("releasing address = %v under poolID = %v", r.Address, r.PoolID)
-	networkParams, err := nuageipam.getNetworkInfo(r.PoolID)
+	networkParams, err := nuageipam.getNetworkInfo(r.PoolID, "vrs")
 	if err != nil {
 		utils.HandleHTTPError(w, "populating network params", err)
 		return
@@ -299,20 +301,32 @@ func (nuageipam *NuageIPAMDriver) GateWayAddressRequest(r *ipam.RequestAddressRe
 	return &resp, nil
 }
 
-func (nuageipam *NuageIPAMDriver) getNetworkInfo(poolID string) (*nuageConfig.NuageNetworkParams, error) {
+func (nuageipam *NuageIPAMDriver) getNetworkInfo(poolID, source string) (*nuageConfig.NuageNetworkParams, error) {
 	nuageipam.Lock()
 	defer nuageipam.Unlock()
 	log.Debugf("fetching network info for pool id %s", poolID)
 	networkInfo, ok := nuageipam.vsdNetworkMap.Read(poolID)
 	if !ok {
 		networkParamsHash := strings.Split(poolID, "-")
-
-		dockerResp := nuageApi.DockerChanRequest(nuageipam.dockerChannel,
-			nuageApi.DockerPoolIDNetworkOptsEvent, networkParamsHash[0])
-		networkInfo := dockerResp.DockerData.(*nuageConfig.NuageNetworkParams)
-		if dockerResp.Error != nil {
-			log.Errorf("Fetching network opts from docker failed with error: %v", dockerResp.Error)
-			return nil, dockerResp.Error
+		networkInfo := &nuageConfig.NuageNetworkParams{}
+		if source == "vrs" {
+			vrsResp := nuageApi.VRSChanRequest(nuageipam.vrsChannel,
+				nuageApi.VRSPoolIDNetworkOptsEvent, networkParamsHash[0])
+			if vrsResp.Error != nil {
+				log.Errorf("fetching network opts from vrs failed: %v", vrsResp.Error)
+				return nil, vrsResp.Error
+			}
+			networkInfo = vrsResp.VRSData.(*nuageConfig.NuageNetworkParams)
+			log.Debugf("%s replied with network info %v", source, networkInfo)
+		} else {
+			dockerResp := nuageApi.DockerChanRequest(nuageipam.dockerChannel,
+				nuageApi.DockerPoolIDNetworkOptsEvent, networkParamsHash[0])
+			if dockerResp.Error != nil {
+				log.Errorf("Fetching network opts from docker failed with error: %v", dockerResp.Error)
+				return nil, dockerResp.Error
+			}
+			networkInfo = dockerResp.DockerData.(*nuageConfig.NuageNetworkParams)
+			log.Debugf("%s replied with network info %v", source, networkInfo)
 		}
 
 		vsdResp := nuageApi.VSDChanRequest(nuageipam.vsdChannel,
@@ -321,6 +335,7 @@ func (nuageipam *NuageIPAMDriver) getNetworkInfo(poolID string) (*nuageConfig.Nu
 			log.Errorf("adding vsd objects failed with error : %v", vsdResp.Error)
 			return nil, vsdResp.Error
 		}
+		log.Debugf("finished adding vsd objects for network %v", networkInfo)
 		nuageipam.vsdNetworkMap.Write(poolID, networkInfo)
 		return networkInfo, nil
 	}
