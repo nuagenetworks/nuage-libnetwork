@@ -17,3 +17,5 @@ go build
 docker build -t nuage-plugin:${version} -f Dockerfile .
 
 docker save -o nuage_plugin.tar nuage-plugin:${version}
+
+docker rmi nuage-plugin:${version}
