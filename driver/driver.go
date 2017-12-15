@@ -34,6 +34,7 @@ import (
 	"os/signal"
 	"path"
 	"syscall"
+	"time"
 )
 
 //NuageLibNetworkDriver contains handles to all the components
@@ -103,8 +104,10 @@ func (nuagedriver *NuageLibNetworkDriver) Run() {
 
 	select {
 	case <-channels.Stop:
-		log.Infof("Received stop")
+		log.Infof("Shutting down Nuage libnetwork Remote and IPAM driver plugins...")
 	}
+	time.Sleep(1500 * time.Millisecond)
+	log.Infof("Nuage libnetwork Remote and IPAM driver plugins shutdown complete.")
 }
 
 func (nuagedriver *NuageLibNetworkDriver) setupModules(channels *nuageApi.NuageLibNetworkChannels, ipamServeMux, remoteServeMux *http.ServeMux) error {
@@ -219,7 +222,7 @@ func (nuagedriver *NuageLibNetworkDriver) signalHandler(channels *nuageApi.Nuage
 		case syscall.SIGINT:
 			fallthrough
 		case syscall.SIGTERM:
-			channels.Stop <- true
+			close(channels.Stop)
 		case syscall.SIGUSR1:
 			nuagedriver.config, err = nuageConfig.ReadConfigFile(nuagedriver.configFile)
 			if err != nil {
