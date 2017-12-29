@@ -17,6 +17,11 @@
 
 package api
 
+import (
+	"fmt"
+	"time"
+)
+
 //VRSEventType defines VRS events
 type VRSEventType string
 
@@ -107,36 +112,60 @@ type NuageLibNetworkChannels struct {
 
 //VSDChanRequest make a request on VSD Channel
 func VSDChanRequest(receiver chan *VSDEvent, event VSDEventType, params interface{}) *VSDRespObject {
+	ticker := time.NewTicker(time.Duration(300 * time.Second))
 	vsdReq := &VSDEvent{
 		EventType:    event,
 		VSDReqObject: params,
 	}
 	vsdReq.VSDRespObjectChan = make(chan *VSDRespObject)
 	receiver <- vsdReq
-	vsdResp := <-vsdReq.VSDRespObjectChan
-	return vsdResp
+	select {
+	case vsdResp := <-vsdReq.VSDRespObjectChan:
+		return vsdResp
+	case <-ticker.C:
+		vsdResp := &VSDRespObject{}
+		vsdResp.Error = fmt.Errorf("Timeout Exceeded. Request(%+v) failed.", vsdReq)
+		return vsdResp
+	}
+	return nil
 }
 
 //VRSChanRequest make a request on VRS Channel
 func VRSChanRequest(receiver chan *VRSEvent, event VRSEventType, params interface{}) *VRSRespObject {
+	ticker := time.NewTicker(time.Duration(300 * time.Second))
 	vrsReq := &VRSEvent{
 		EventType:    event,
 		VRSReqObject: params,
 	}
 	vrsReq.VRSRespObjectChan = make(chan *VRSRespObject)
 	receiver <- vrsReq
-	vrsResp := <-vrsReq.VRSRespObjectChan
-	return vrsResp
+	select {
+	case vrsResp := <-vrsReq.VRSRespObjectChan:
+		return vrsResp
+	case <-ticker.C:
+		vrsResp := &VRSRespObject{}
+		vrsResp.Error = fmt.Errorf("Timeout Exceeded. Request(%+v) failed.", vrsReq)
+		return vrsResp
+	}
+	return nil
 }
 
 //DockerChanRequest make a request on VRS Channel
 func DockerChanRequest(receiver chan *DockerEvent, event DockerEventType, params interface{}) *DockerRespObject {
+	ticker := time.NewTicker(time.Duration(300 * time.Second))
 	dockerReq := &DockerEvent{
 		EventType:       event,
 		DockerReqObject: params,
 	}
 	dockerReq.DockerRespObjectChan = make(chan *DockerRespObject)
 	receiver <- dockerReq
-	dockerResp := <-dockerReq.DockerRespObjectChan
-	return dockerResp
+	select {
+	case dockerResp := <-dockerReq.DockerRespObjectChan:
+		return dockerResp
+	case <-ticker.C:
+		dockerResp := &DockerRespObject{}
+		dockerResp.Error = fmt.Errorf("Timeout Exceeded. Request(%+v) failed.", dockerReq)
+		return dockerResp
+	}
+	return nil
 }
