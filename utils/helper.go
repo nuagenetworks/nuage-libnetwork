@@ -20,7 +20,7 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 )

@@ -38,10 +38,19 @@ var FirewallRuleIdentity = bambou.Identity{
 // FirewallRulesList represents a list of FirewallRules
 type FirewallRulesList []*FirewallRule
 
-// FirewallRulesAncestor is the interface of an ancestor of a FirewallRule must implement.
+// FirewallRulesAncestor is the interface that an ancestor of a FirewallRule must implement.
+// An Ancestor is defined as an entity that has FirewallRule as a descendant.
+// An Ancestor can get a list of its child FirewallRules, but not necessarily create one.
 type FirewallRulesAncestor interface {
 	FirewallRules(*bambou.FetchingInfo) (FirewallRulesList, *bambou.Error)
-	CreateFirewallRules(*FirewallRule) *bambou.Error
+}
+
+// FirewallRulesParent is the interface that a parent of a FirewallRule must implement.
+// A Parent is defined as an entity that has FirewallRule as a child.
+// A Parent is an Ancestor which can create a FirewallRule.
+type FirewallRulesParent interface {
+	FirewallRulesAncestor
+	CreateFirewallRule(*FirewallRule) *bambou.Error
 }
 
 // FirewallRule represents the model of a firewallrule
@@ -93,7 +102,9 @@ type FirewallRule struct {
 // NewFirewallRule returns a new *FirewallRule
 func NewFirewallRule() *FirewallRule {
 
-	return &FirewallRule{}
+	return &FirewallRule{
+		Stateful: false,
+	}
 }
 
 // Identity returns the Identity of the object.

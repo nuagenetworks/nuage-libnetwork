@@ -23,7 +23,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types"
 	"github.com/mitchellh/mapstructure"
 	"github.com/nuagenetworks/go-bambou/bambou"
@@ -31,6 +30,7 @@ import (
 	nuageConfig "github.com/nuagenetworks/nuage-libnetwork/config"
 	"github.com/nuagenetworks/nuage-libnetwork/utils"
 	"github.com/nuagenetworks/vspk-go/vspk"
+	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"io"
 	"math"
@@ -469,14 +469,27 @@ func (nuagevsd *NuageVSDClient) FetchSubnetInfo(domain *vspk.Domain, subnetName 
 
 func (nuagevsd *NuageVSDClient) fetchVSDContainerList() (vspk.ContainersList, error) {
 	var vsdContainerList vspk.ContainersList
+	var tempContainerList vspk.ContainersList
 	var err *bambou.Error
 	nuagevsd.makeVSDCall(
 		func() *bambou.Error {
 			log.Debugf("Trying to get container list for this hypervisor on VSD")
 			containerFetchingInfo := &bambou.FetchingInfo{Filter: "externalID == \"" + nuagevsd.hypervisorID + "\""}
-			vsdContainerList, err = nuagevsd.vsdUser.Containers(containerFetchingInfo)
-			log.Debugf("Number of containers belonging to this hypervisor %d", len(vsdContainerList))
-			return err
+			containerFetchingInfo.Page = 0
+			containerFetchingInfo.PageSize = 50
+			for {
+				tempContainerList, err = nuagevsd.vsdUser.Containers(containerFetchingInfo)
+				if err != nil {
+					return err
+				}
+				vsdContainerList = append(vsdContainerList, tempContainerList...)
+				if len(tempContainerList) < 50 {
+					return err
+				} else {
+					containerFetchingInfo.Page++
+				}
+			}
+			return nil
 		}, "fetching container list")
 	if err != nil {
 		return vsdContainerList, fmt.Errorf("fetching container list from VSD failed with error: %v after all retries", err)
@@ -492,6 +505,7 @@ func (nuagevsd *NuageVSDClient) fetchVSDContainerList() (vspk.ContainersList, er
 		interfaceList[0] = containerInterface
 		vsdContainer.Interfaces = interfaceList
 	}
+	log.Debugf("Number of containers belonging to this hypervisor %d", len(vsdContainerList))
 	return vsdContainerList, nil
 }
 
@@ -542,7 +556,7 @@ func (nuagevsd *NuageVSDClient) createVSDSession() (*bambou.Session, *vspk.Me, e
 
 func (nuagevsd *NuageVSDClient) populateContainerInfo() (map[string]string, error) {
 	containerInfo := make(map[string]string)
-	containerUUID := utils.GenerateID(true)
+	containerUUID := utils.GenerateID()
 	portNames := nuagevsd.createVethPairNames()
 	containerInfo[nuageConfig.EntityPortKey] = portNames[1]
 	containerInfo[nuageConfig.BridgePortKey] = portNames[0]

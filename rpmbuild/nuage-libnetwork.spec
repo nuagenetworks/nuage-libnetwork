@@ -5,7 +5,7 @@
 %undefine _missing_build_ids_terminate_build
 
 Name: nuage-libnetwork
-Version: 0.0
+Version: %{version}
 Release: 1%{?dist}
 Summary: Nuage Libnetwork Plugin
 Group: System Environments/Daemons  
@@ -55,7 +55,6 @@ rm -rf $RPM_BUILD_ROOT
 
 /usr/bin/%{libnetwork_nuage_binary}
 /etc/systemd/system/%{libnetwork_nuage_service}
-/etc/default/%{libnetwork_nuage_yaml}
 %attr(644, root, nobody) /etc/default/%{libnetwork_nuage_yaml} 
 %doc
 

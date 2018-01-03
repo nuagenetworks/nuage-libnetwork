@@ -28,12 +28,13 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 var currentSession Storer
@@ -158,7 +159,7 @@ func (s *Session) prepareHeaders(request *http.Request, info *FetchingInfo) *Err
 	}
 
 	// Common headers
-	request.Header.Set("X-Nuage-PageSize", "2000")
+	request.Header.Set("X-Nuage-PageSize", "50")
 	request.Header.Set("Content-Type", "application/json")
 
 	if info == nil {
@@ -209,11 +210,17 @@ func (s *Session) send(request *http.Request, info *FetchingInfo) (*http.Respons
 
 	s.prepareHeaders(request, info)
 
+	log.Debugf("Request Method URL: %s %s", request.Method, request.URL)
+	log.Debugf("Request Headers: %s", request.Header)
+
 	response, err := s.client.Do(request)
 
 	if err != nil {
 		return response, NewBambouError("HTTP client error", err.Error())
 	}
+
+	log.Debugf("Response Status: %s", response.Status)
+	log.Debugf("Response Headers: %s", response.Header)
 
 	switch response.StatusCode {
 
@@ -232,20 +239,21 @@ func (s *Session) send(request *http.Request, info *FetchingInfo) (*http.Respons
 		defer response.Body.Close()
 
 		body, _ := ioutil.ReadAll(response.Body)
+		log.Debugf("Response Body: %s", string(body))
 
 		if err := json.Unmarshal(body, &vsdresp); err != nil {
 			return nil, NewBambouError("JSON unmarshalling error", err.Error())
 		}
 		// Check if there is an _actual_ VSD response -- we may get a bogus 40x from e.g. tests
 		if len(vsdresp.VsdErrors) == 0 {
-			return nil, NewBambouError(fmt.Sprintf("Error Code: %d", response.StatusCode), response.Status)
+			return nil, NewBambouError("Non-VSD server HTTP error", response.Status)
 		} else { // Valid VSD response
-			return nil, NewBambouError(fmt.Sprintf("Error Code: %d", response.StatusCode), vsdresp.VsdErrors[0].Descriptions[0].Description)
+			return nil, NewBambouError(vsdresp.VsdErrors[0].Descriptions[0].Title, vsdresp.VsdErrors[0].Descriptions[0].Description)
 		}
 
 	default:
 		defer response.Body.Close()
-		return nil, NewBambouError(fmt.Sprintf("Error Code: %d", response.StatusCode), response.Status)
+		return nil, NewBambouError("HTTP error", response.Status)
 	}
 }
 
@@ -330,6 +338,7 @@ func (s *Session) FetchEntity(object Identifiable) *Error {
 	defer response.Body.Close()
 
 	body, _ := ioutil.ReadAll(response.Body)
+	log.Debugf("Response Body: %s", string(body))
 
 	arr := IdentifiablesList{object} // trick for weird api..
 	if err := json.Unmarshal(body, &arr); err != nil {
@@ -363,6 +372,16 @@ func (s *Session) SaveEntity(object Identifiable) *Error {
 		return berr
 	}
 	defer response.Body.Close()
+
+	body, _ := ioutil.ReadAll(response.Body)
+	log.Debugf("Response Body: %s", string(body))
+
+	dest := IdentifiablesList{object}
+	if len(body) > 0 {
+		if err := json.Unmarshal(body, &dest); err != nil {
+			return NewBambouError("JSON Unmarshaling error", err.Error())
+		}
+	}
 
 	return nil
 }
@@ -411,6 +430,7 @@ func (s *Session) FetchChildren(parent Identifiable, identity Identity, dest int
 	defer response.Body.Close()
 
 	body, _ := ioutil.ReadAll(response.Body)
+	log.Debugf("Response Body: %s", string(body))
 
 	if response.StatusCode == http.StatusNoContent || response.ContentLength == 0 {
 		return nil
@@ -448,6 +468,7 @@ func (s *Session) CreateChild(parent Identifiable, child Identifiable) *Error {
 	defer response.Body.Close()
 
 	body, _ := ioutil.ReadAll(response.Body)
+	log.Debugf("Response Body: %s", string(body))
 
 	dest := IdentifiablesList{child}
 	if err := json.Unmarshal(body, &dest); err != nil {

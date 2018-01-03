@@ -38,10 +38,19 @@ var UnderlayIdentity = bambou.Identity{
 // UnderlaysList represents a list of Underlays
 type UnderlaysList []*Underlay
 
-// UnderlaysAncestor is the interface of an ancestor of a Underlay must implement.
+// UnderlaysAncestor is the interface that an ancestor of a Underlay must implement.
+// An Ancestor is defined as an entity that has Underlay as a descendant.
+// An Ancestor can get a list of its child Underlays, but not necessarily create one.
 type UnderlaysAncestor interface {
 	Underlays(*bambou.FetchingInfo) (UnderlaysList, *bambou.Error)
-	CreateUnderlays(*Underlay) *bambou.Error
+}
+
+// UnderlaysParent is the interface that a parent of a Underlay must implement.
+// A Parent is defined as an entity that has Underlay as a child.
+// A Parent is an Ancestor which can create a Underlay.
+type UnderlaysParent interface {
+	UnderlaysAncestor
+	CreateUnderlay(*Underlay) *bambou.Error
 }
 
 // Underlay represents the model of a underlay

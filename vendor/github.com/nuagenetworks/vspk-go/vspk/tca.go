@@ -38,10 +38,19 @@ var TCAIdentity = bambou.Identity{
 // TCAsList represents a list of TCAs
 type TCAsList []*TCA
 
-// TCAsAncestor is the interface of an ancestor of a TCA must implement.
+// TCAsAncestor is the interface that an ancestor of a TCA must implement.
+// An Ancestor is defined as an entity that has TCA as a descendant.
+// An Ancestor can get a list of its child TCAs, but not necessarily create one.
 type TCAsAncestor interface {
 	TCAs(*bambou.FetchingInfo) (TCAsList, *bambou.Error)
-	CreateTCAs(*TCA) *bambou.Error
+}
+
+// TCAsParent is the interface that a parent of a TCA must implement.
+// A Parent is defined as an entity that has TCA as a child.
+// A Parent is an Ancestor which can create a TCA.
+type TCAsParent interface {
+	TCAsAncestor
+	CreateTCA(*TCA) *bambou.Error
 }
 
 // TCA represents the model of a tca
@@ -73,8 +82,12 @@ type TCA struct {
 func NewTCA() *TCA {
 
 	return &TCA{
-		Metric: "BYTES_IN",
-		Type:   "ROLLING_AVERAGE",
+		Metric:       "BYTES_IN",
+		ThrottleTime: 0,
+		Disable:      false,
+		Count:        0,
+		Status:       false,
+		Type:         "ROLLING_AVERAGE",
 	}
 }
 
@@ -162,10 +175,4 @@ func (o *TCA) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the TCA
-func (o *TCA) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

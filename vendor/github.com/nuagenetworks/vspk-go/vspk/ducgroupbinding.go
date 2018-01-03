@@ -38,10 +38,19 @@ var DUCGroupBindingIdentity = bambou.Identity{
 // DUCGroupBindingsList represents a list of DUCGroupBindings
 type DUCGroupBindingsList []*DUCGroupBinding
 
-// DUCGroupBindingsAncestor is the interface of an ancestor of a DUCGroupBinding must implement.
+// DUCGroupBindingsAncestor is the interface that an ancestor of a DUCGroupBinding must implement.
+// An Ancestor is defined as an entity that has DUCGroupBinding as a descendant.
+// An Ancestor can get a list of its child DUCGroupBindings, but not necessarily create one.
 type DUCGroupBindingsAncestor interface {
 	DUCGroupBindings(*bambou.FetchingInfo) (DUCGroupBindingsList, *bambou.Error)
-	CreateDUCGroupBindings(*DUCGroupBinding) *bambou.Error
+}
+
+// DUCGroupBindingsParent is the interface that a parent of a DUCGroupBinding must implement.
+// A Parent is defined as an entity that has DUCGroupBinding as a child.
+// A Parent is an Ancestor which can create a DUCGroupBinding.
+type DUCGroupBindingsParent interface {
+	DUCGroupBindingsAncestor
+	CreateDUCGroupBinding(*DUCGroupBinding) *bambou.Error
 }
 
 // DUCGroupBinding represents the model of a ducgroupbinding
@@ -50,7 +59,6 @@ type DUCGroupBinding struct {
 	ParentID             string `json:"parentID,omitempty"`
 	ParentType           string `json:"parentType,omitempty"`
 	Owner                string `json:"owner,omitempty"`
-	Id                   string `json:"id,omitempty"`
 	OneWayDelay          int    `json:"oneWayDelay,omitempty"`
 	Priority             int    `json:"priority,omitempty"`
 	AssociatedDUCGroupID string `json:"associatedDUCGroupID,omitempty"`
@@ -59,7 +67,9 @@ type DUCGroupBinding struct {
 // NewDUCGroupBinding returns a new *DUCGroupBinding
 func NewDUCGroupBinding() *DUCGroupBinding {
 
-	return &DUCGroupBinding{}
+	return &DUCGroupBinding{
+		OneWayDelay: 50,
+	}
 }
 
 // Identity returns the Identity of the object.

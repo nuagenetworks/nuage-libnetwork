@@ -38,10 +38,19 @@ var FirewallAclIdentity = bambou.Identity{
 // FirewallAclsList represents a list of FirewallAcls
 type FirewallAclsList []*FirewallAcl
 
-// FirewallAclsAncestor is the interface of an ancestor of a FirewallAcl must implement.
+// FirewallAclsAncestor is the interface that an ancestor of a FirewallAcl must implement.
+// An Ancestor is defined as an entity that has FirewallAcl as a descendant.
+// An Ancestor can get a list of its child FirewallAcls, but not necessarily create one.
 type FirewallAclsAncestor interface {
 	FirewallAcls(*bambou.FetchingInfo) (FirewallAclsList, *bambou.Error)
-	CreateFirewallAcls(*FirewallAcl) *bambou.Error
+}
+
+// FirewallAclsParent is the interface that a parent of a FirewallAcl must implement.
+// A Parent is defined as an entity that has FirewallAcl as a child.
+// A Parent is an Ancestor which can create a FirewallAcl.
+type FirewallAclsParent interface {
+	FirewallAclsAncestor
+	CreateFirewallAcl(*FirewallAcl) *bambou.Error
 }
 
 // FirewallAcl represents the model of a firewallacl
@@ -108,22 +117,10 @@ func (o *FirewallAcl) FirewallRules(info *bambou.FetchingInfo) (FirewallRulesLis
 	return list, err
 }
 
-// CreateFirewallRule creates a new child FirewallRule under the FirewallAcl
-func (o *FirewallAcl) CreateFirewallRule(child *FirewallRule) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // Domains retrieves the list of child Domains of the FirewallAcl
 func (o *FirewallAcl) Domains(info *bambou.FetchingInfo) (DomainsList, *bambou.Error) {
 
 	var list DomainsList
 	err := bambou.CurrentSession().FetchChildren(o, DomainIdentity, &list, info)
 	return list, err
-}
-
-// CreateDomain creates a new child Domain under the FirewallAcl
-func (o *FirewallAcl) CreateDomain(child *Domain) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

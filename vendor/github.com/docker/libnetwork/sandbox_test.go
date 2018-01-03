@@ -10,7 +10,11 @@ import (
 	"github.com/docker/libnetwork/testutils"
 )
 
-func getTestEnv(t *testing.T, empty bool) (NetworkController, Network, Network) {
+func createEmptyCtrlr() *controller {
+	return &controller{sandboxes: sandboxTable{}}
+}
+
+func getTestEnv(t *testing.T) (NetworkController, Network, Network) {
 	netType := "bridge"
 
 	option := options.Generic{
@@ -28,17 +32,13 @@ func getTestEnv(t *testing.T, empty bool) (NetworkController, Network, Network) 
 		t.Fatal(err)
 	}
 
-	if empty {
-		return c, nil, nil
-	}
-
 	name1 := "test_nw_1"
 	netOption1 := options.Generic{
 		netlabel.GenericData: options.Generic{
 			"BridgeName": name1,
 		},
 	}
-	n1, err := c.NewNetwork(netType, name1, "", NetworkOptionGeneric(netOption1))
+	n1, err := c.NewNetwork(netType, name1, NetworkOptionGeneric(netOption1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func getTestEnv(t *testing.T, empty bool) (NetworkController, Network, Network) 
 			"BridgeName": name2,
 		},
 	}
-	n2, err := c.NewNetwork(netType, name2, "", NetworkOptionGeneric(netOption2))
+	n2, err := c.NewNetwork(netType, name2, NetworkOptionGeneric(netOption2))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,8 +58,7 @@ func getTestEnv(t *testing.T, empty bool) (NetworkController, Network, Network) 
 }
 
 func TestSandboxAddEmpty(t *testing.T) {
-	c, _, _ := getTestEnv(t, true)
-	ctrlr := c.(*controller)
+	ctrlr := createEmptyCtrlr()
 
 	sbx, err := ctrlr.NewSandbox("sandbox0")
 	if err != nil {
@@ -82,7 +81,7 @@ func TestSandboxAddMultiPrio(t *testing.T) {
 		defer testutils.SetupTestOSContext(t)()
 	}
 
-	c, nw, _ := getTestEnv(t, false)
+	c, nw, _ := getTestEnv(t)
 	ctrlr := c.(*controller)
 
 	sbx, err := ctrlr.NewSandbox("sandbox1")
@@ -118,10 +117,6 @@ func TestSandboxAddMultiPrio(t *testing.T) {
 
 	if ctrlr.sandboxes[sid].endpoints[0].ID() != ep3.ID() {
 		t.Fatal("Expected ep3 to be at the top of the heap. But did not find ep3 at the top of the heap")
-	}
-
-	if len(sbx.Endpoints()) != 3 {
-		t.Fatal("Expected 3 endpoints to be connected to the sandbox.")
 	}
 
 	if err := ep3.Leave(sbx); err != nil {
@@ -163,7 +158,7 @@ func TestSandboxAddSamePrio(t *testing.T) {
 		defer testutils.SetupTestOSContext(t)()
 	}
 
-	c, nw1, nw2 := getTestEnv(t, false)
+	c, nw1, nw2 := getTestEnv(t)
 
 	ctrlr := c.(*controller)
 

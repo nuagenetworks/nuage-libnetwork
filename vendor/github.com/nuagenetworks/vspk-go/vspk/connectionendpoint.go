@@ -38,10 +38,19 @@ var ConnectionendpointIdentity = bambou.Identity{
 // ConnectionendpointsList represents a list of Connectionendpoints
 type ConnectionendpointsList []*Connectionendpoint
 
-// ConnectionendpointsAncestor is the interface of an ancestor of a Connectionendpoint must implement.
+// ConnectionendpointsAncestor is the interface that an ancestor of a Connectionendpoint must implement.
+// An Ancestor is defined as an entity that has Connectionendpoint as a descendant.
+// An Ancestor can get a list of its child Connectionendpoints, but not necessarily create one.
 type ConnectionendpointsAncestor interface {
 	Connectionendpoints(*bambou.FetchingInfo) (ConnectionendpointsList, *bambou.Error)
-	CreateConnectionendpoints(*Connectionendpoint) *bambou.Error
+}
+
+// ConnectionendpointsParent is the interface that a parent of a Connectionendpoint must implement.
+// A Parent is defined as an entity that has Connectionendpoint as a child.
+// A Parent is an Ancestor which can create a Connectionendpoint.
+type ConnectionendpointsParent interface {
+	ConnectionendpointsAncestor
+	CreateConnectionendpoint(*Connectionendpoint) *bambou.Error
 }
 
 // Connectionendpoint represents the model of a connectionendpoint
@@ -60,7 +69,10 @@ type Connectionendpoint struct {
 // NewConnectionendpoint returns a new *Connectionendpoint
 func NewConnectionendpoint() *Connectionendpoint {
 
-	return &Connectionendpoint{}
+	return &Connectionendpoint{
+		IPType:       "IPV4",
+		EndPointType: "SOURCE",
+	}
 }
 
 // Identity returns the Identity of the object.
