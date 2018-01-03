@@ -38,10 +38,19 @@ var BRConnectionIdentity = bambou.Identity{
 // BRConnectionsList represents a list of BRConnections
 type BRConnectionsList []*BRConnection
 
-// BRConnectionsAncestor is the interface of an ancestor of a BRConnection must implement.
+// BRConnectionsAncestor is the interface that an ancestor of a BRConnection must implement.
+// An Ancestor is defined as an entity that has BRConnection as a descendant.
+// An Ancestor can get a list of its child BRConnections, but not necessarily create one.
 type BRConnectionsAncestor interface {
 	BRConnections(*bambou.FetchingInfo) (BRConnectionsList, *bambou.Error)
-	CreateBRConnections(*BRConnection) *bambou.Error
+}
+
+// BRConnectionsParent is the interface that a parent of a BRConnection must implement.
+// A Parent is defined as an entity that has BRConnection as a child.
+// A Parent is an Ancestor which can create a BRConnection.
+type BRConnectionsParent interface {
+	BRConnectionsAncestor
+	CreateBRConnection(*BRConnection) *bambou.Error
 }
 
 // BRConnection represents the model of a brconnections
@@ -99,4 +108,18 @@ func (o *BRConnection) Save() *bambou.Error {
 func (o *BRConnection) Delete() *bambou.Error {
 
 	return bambou.CurrentSession().DeleteEntity(o)
+}
+
+// BFDSessions retrieves the list of child BFDSessions of the BRConnection
+func (o *BRConnection) BFDSessions(info *bambou.FetchingInfo) (BFDSessionsList, *bambou.Error) {
+
+	var list BFDSessionsList
+	err := bambou.CurrentSession().FetchChildren(o, BFDSessionIdentity, &list, info)
+	return list, err
+}
+
+// CreateBFDSession creates a new child BFDSession under the BRConnection
+func (o *BRConnection) CreateBFDSession(child *BFDSession) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
 }

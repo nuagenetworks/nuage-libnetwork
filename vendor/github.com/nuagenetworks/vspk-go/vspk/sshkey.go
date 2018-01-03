@@ -38,10 +38,19 @@ var SSHKeyIdentity = bambou.Identity{
 // SSHKeysList represents a list of SSHKeys
 type SSHKeysList []*SSHKey
 
-// SSHKeysAncestor is the interface of an ancestor of a SSHKey must implement.
+// SSHKeysAncestor is the interface that an ancestor of a SSHKey must implement.
+// An Ancestor is defined as an entity that has SSHKey as a descendant.
+// An Ancestor can get a list of its child SSHKeys, but not necessarily create one.
 type SSHKeysAncestor interface {
 	SSHKeys(*bambou.FetchingInfo) (SSHKeysList, *bambou.Error)
-	CreateSSHKeys(*SSHKey) *bambou.Error
+}
+
+// SSHKeysParent is the interface that a parent of a SSHKey must implement.
+// A Parent is defined as an entity that has SSHKey as a child.
+// A Parent is an Ancestor which can create a SSHKey.
+type SSHKeysParent interface {
+	SSHKeysAncestor
+	CreateSSHKey(*SSHKey) *bambou.Error
 }
 
 // SSHKey represents the model of a sshkey
@@ -59,7 +68,9 @@ type SSHKey struct {
 // NewSSHKey returns a new *SSHKey
 func NewSSHKey() *SSHKey {
 
-	return &SSHKey{}
+	return &SSHKey{
+		KeyType: "RSA",
+	}
 }
 
 // Identity returns the Identity of the object.

@@ -19,7 +19,6 @@ package client
 
 import (
 	"fmt"
-	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
@@ -27,6 +26,7 @@ import (
 	nuageApi "github.com/nuagenetworks/nuage-libnetwork/api"
 	nuageConfig "github.com/nuagenetworks/nuage-libnetwork/config"
 	"github.com/nuagenetworks/nuage-libnetwork/utils"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"net"
 	"os"
@@ -150,7 +150,7 @@ func (nuagedocker *NuageDockerClient) GetNetworkOptsFromNetworkID(networkID stri
 
 	nuagedocker.executeDockerCommand(
 		func() error {
-			networkInspect, err = nuagedocker.dclient.NetworkInspect(context.Background(), networkID)
+			networkInspect, err = nuagedocker.dclient.NetworkInspect(context.Background(), networkID, types.NetworkInspectOptions{})
 			return err
 		})
 	if err != nil {

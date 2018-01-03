@@ -20,12 +20,12 @@ package remote
 import (
 	"encoding/json"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/plugins"
 	"github.com/docker/go-plugins-helpers/network"
 	nuageApi "github.com/nuagenetworks/nuage-libnetwork/api"
 	nuageConfig "github.com/nuagenetworks/nuage-libnetwork/config"
 	"github.com/nuagenetworks/nuage-libnetwork/utils"
+	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"net/http"
 	"strings"

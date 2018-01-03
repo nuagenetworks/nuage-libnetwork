@@ -38,10 +38,19 @@ var VCenterDataCenterIdentity = bambou.Identity{
 // VCenterDataCentersList represents a list of VCenterDataCenters
 type VCenterDataCentersList []*VCenterDataCenter
 
-// VCenterDataCentersAncestor is the interface of an ancestor of a VCenterDataCenter must implement.
+// VCenterDataCentersAncestor is the interface that an ancestor of a VCenterDataCenter must implement.
+// An Ancestor is defined as an entity that has VCenterDataCenter as a descendant.
+// An Ancestor can get a list of its child VCenterDataCenters, but not necessarily create one.
 type VCenterDataCentersAncestor interface {
 	VCenterDataCenters(*bambou.FetchingInfo) (VCenterDataCentersList, *bambou.Error)
-	CreateVCenterDataCenters(*VCenterDataCenter) *bambou.Error
+}
+
+// VCenterDataCentersParent is the interface that a parent of a VCenterDataCenter must implement.
+// A Parent is defined as an entity that has VCenterDataCenter as a child.
+// A Parent is an Ancestor which can create a VCenterDataCenter.
+type VCenterDataCentersParent interface {
+	VCenterDataCentersAncestor
+	CreateVCenterDataCenter(*VCenterDataCenter) *bambou.Error
 }
 
 // VCenterDataCenter represents the model of a vcenterdatacenter
@@ -62,6 +71,9 @@ type VCenterDataCenter struct {
 	DatapathSyncTimeout              int    `json:"datapathSyncTimeout,omitempty"`
 	SecondaryNuageController         string `json:"secondaryNuageController,omitempty"`
 	DeletedFromVCenter               bool   `json:"deletedFromVCenter"`
+	RemoteSyslogServerIP             string `json:"remoteSyslogServerIP,omitempty"`
+	RemoteSyslogServerPort           int    `json:"remoteSyslogServerPort,omitempty"`
+	RemoteSyslogServerType           string `json:"remoteSyslogServerType,omitempty"`
 	GenericSplitActivation           bool   `json:"genericSplitActivation"`
 	SeparateDataNetwork              bool   `json:"separateDataNetwork"`
 	Personality                      string `json:"personality,omitempty"`
@@ -91,13 +103,22 @@ type VCenterDataCenter struct {
 	EntityScope                      string `json:"entityScope,omitempty"`
 	PortgroupMetadata                bool   `json:"portgroupMetadata"`
 	NovaClientVersion                int    `json:"novaClientVersion,omitempty"`
+	NovaIdentityURLVersion           string `json:"novaIdentityURLVersion,omitempty"`
 	NovaMetadataServiceAuthUrl       string `json:"novaMetadataServiceAuthUrl,omitempty"`
 	NovaMetadataServiceEndpoint      string `json:"novaMetadataServiceEndpoint,omitempty"`
 	NovaMetadataServicePassword      string `json:"novaMetadataServicePassword,omitempty"`
 	NovaMetadataServiceTenant        string `json:"novaMetadataServiceTenant,omitempty"`
 	NovaMetadataServiceUsername      string `json:"novaMetadataServiceUsername,omitempty"`
 	NovaMetadataSharedSecret         string `json:"novaMetadataSharedSecret,omitempty"`
+	NovaOSKeystoneUsername           string `json:"novaOSKeystoneUsername,omitempty"`
+	NovaProjectDomainName            string `json:"novaProjectDomainName,omitempty"`
+	NovaProjectName                  string `json:"novaProjectName,omitempty"`
 	NovaRegionName                   string `json:"novaRegionName,omitempty"`
+	NovaUserDomainName               string `json:"novaUserDomainName,omitempty"`
+	UpgradePackagePassword           string `json:"upgradePackagePassword,omitempty"`
+	UpgradePackageURL                string `json:"upgradePackageURL,omitempty"`
+	UpgradePackageUsername           string `json:"upgradePackageUsername,omitempty"`
+	UpgradeScriptTimeLimit           int    `json:"upgradeScriptTimeLimit,omitempty"`
 	PrimaryNuageController           string `json:"primaryNuageController,omitempty"`
 	VrsPassword                      string `json:"vrsPassword,omitempty"`
 	VrsUserName                      string `json:"vrsUserName,omitempty"`
@@ -125,7 +146,11 @@ type VCenterDataCenter struct {
 // NewVCenterDataCenter returns a new *VCenterDataCenter
 func NewVCenterDataCenter() *VCenterDataCenter {
 
-	return &VCenterDataCenter{}
+	return &VCenterDataCenter{
+		RemoteSyslogServerPort: 514,
+		RemoteSyslogServerType: "NONE",
+		DestinationMirrorPort:  "no_mirror",
+	}
 }
 
 // Identity returns the Identity of the object.
@@ -256,22 +281,10 @@ func (o *VCenterDataCenter) AutoDiscoverClusters(info *bambou.FetchingInfo) (Aut
 	return list, err
 }
 
-// CreateAutoDiscoverCluster creates a new child AutoDiscoverCluster under the VCenterDataCenter
-func (o *VCenterDataCenter) CreateAutoDiscoverCluster(child *AutoDiscoverCluster) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // AutoDiscoverHypervisorFromClusters retrieves the list of child AutoDiscoverHypervisorFromClusters of the VCenterDataCenter
 func (o *VCenterDataCenter) AutoDiscoverHypervisorFromClusters(info *bambou.FetchingInfo) (AutoDiscoverHypervisorFromClustersList, *bambou.Error) {
 
 	var list AutoDiscoverHypervisorFromClustersList
 	err := bambou.CurrentSession().FetchChildren(o, AutoDiscoverHypervisorFromClusterIdentity, &list, info)
 	return list, err
-}
-
-// CreateAutoDiscoverHypervisorFromCluster creates a new child AutoDiscoverHypervisorFromCluster under the VCenterDataCenter
-func (o *VCenterDataCenter) CreateAutoDiscoverHypervisorFromCluster(child *AutoDiscoverHypervisorFromCluster) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

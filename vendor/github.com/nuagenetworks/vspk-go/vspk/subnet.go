@@ -38,10 +38,19 @@ var SubnetIdentity = bambou.Identity{
 // SubnetsList represents a list of Subnets
 type SubnetsList []*Subnet
 
-// SubnetsAncestor is the interface of an ancestor of a Subnet must implement.
+// SubnetsAncestor is the interface that an ancestor of a Subnet must implement.
+// An Ancestor is defined as an entity that has Subnet as a descendant.
+// An Ancestor can get a list of its child Subnets, but not necessarily create one.
 type SubnetsAncestor interface {
 	Subnets(*bambou.FetchingInfo) (SubnetsList, *bambou.Error)
-	CreateSubnets(*Subnet) *bambou.Error
+}
+
+// SubnetsParent is the interface that a parent of a Subnet must implement.
+// A Parent is defined as an entity that has Subnet as a child.
+// A Parent is an Ancestor which can create a Subnet.
+type SubnetsParent interface {
+	SubnetsAncestor
+	CreateSubnet(*Subnet) *bambou.Error
 }
 
 // Subnet represents the model of a subnet
@@ -51,6 +60,7 @@ type Subnet struct {
 	ParentType                        string `json:"parentType,omitempty"`
 	Owner                             string `json:"owner,omitempty"`
 	PATEnabled                        string `json:"PATEnabled,omitempty"`
+	DHCPRelayStatus                   string `json:"DHCPRelayStatus,omitempty"`
 	DPI                               string `json:"DPI,omitempty"`
 	IPType                            string `json:"IPType,omitempty"`
 	IPv6Address                       string `json:"IPv6Address,omitempty"`
@@ -60,41 +70,48 @@ type Subnet struct {
 	LastUpdatedBy                     string `json:"lastUpdatedBy,omitempty"`
 	Gateway                           string `json:"gateway,omitempty"`
 	GatewayMACAddress                 string `json:"gatewayMACAddress,omitempty"`
+	AccessRestrictionEnabled          bool   `json:"accessRestrictionEnabled"`
 	Address                           string `json:"address,omitempty"`
+	Advertise                         bool   `json:"advertise"`
 	DefaultAction                     string `json:"defaultAction,omitempty"`
 	TemplateID                        string `json:"templateID,omitempty"`
 	ServiceID                         int    `json:"serviceID,omitempty"`
 	Description                       string `json:"description,omitempty"`
+	ResourceType                      string `json:"resourceType,omitempty"`
 	Netmask                           string `json:"netmask,omitempty"`
 	VnId                              int    `json:"vnId,omitempty"`
 	Encryption                        string `json:"encryption,omitempty"`
 	Underlay                          bool   `json:"underlay"`
 	UnderlayEnabled                   string `json:"underlayEnabled,omitempty"`
 	EntityScope                       string `json:"entityScope,omitempty"`
+	EntityState                       string `json:"entityState,omitempty"`
 	PolicyGroupID                     int    `json:"policyGroupID,omitempty"`
 	RouteDistinguisher                string `json:"routeDistinguisher,omitempty"`
 	RouteTarget                       string `json:"routeTarget,omitempty"`
 	SplitSubnet                       bool   `json:"splitSubnet"`
 	ProxyARP                          bool   `json:"proxyARP"`
 	UseGlobalMAC                      string `json:"useGlobalMAC,omitempty"`
-	AssociatedApplicationID           string `json:"associatedApplicationID,omitempty"`
-	AssociatedApplicationObjectID     string `json:"associatedApplicationObjectID,omitempty"`
-	AssociatedApplicationObjectType   string `json:"associatedApplicationObjectType,omitempty"`
 	AssociatedMulticastChannelMapID   string `json:"associatedMulticastChannelMapID,omitempty"`
 	AssociatedSharedNetworkResourceID string `json:"associatedSharedNetworkResourceID,omitempty"`
 	Public                            bool   `json:"public"`
 	Multicast                         string `json:"multicast,omitempty"`
 	ExternalID                        string `json:"externalID,omitempty"`
+	DynamicIpv6Address                bool   `json:"dynamicIpv6Address"`
 }
 
 // NewSubnet returns a new *Subnet
 func NewSubnet() *Subnet {
 
 	return &Subnet{
-		PATEnabled:      "INHERITED",
-		Multicast:       "INHERITED",
-		IPType:          "IPV4",
-		MaintenanceMode: "DISABLED",
+		PATEnabled:               "INHERITED",
+		DPI:                      "INHERITED",
+		IPType:                   "IPV4",
+		MaintenanceMode:          "DISABLED",
+		AccessRestrictionEnabled: false,
+		Advertise:                true,
+		ResourceType:             "STANDARD",
+		Multicast:                "INHERITED",
+		DynamicIpv6Address:       false,
 	}
 }
 
@@ -132,6 +149,14 @@ func (o *Subnet) Save() *bambou.Error {
 func (o *Subnet) Delete() *bambou.Error {
 
 	return bambou.CurrentSession().DeleteEntity(o)
+}
+
+// PATIPEntries retrieves the list of child PATIPEntries of the Subnet
+func (o *Subnet) PATIPEntries(info *bambou.FetchingInfo) (PATIPEntriesList, *bambou.Error) {
+
+	var list PATIPEntriesList
+	err := bambou.CurrentSession().FetchChildren(o, PATIPEntryIdentity, &list, info)
+	return list, err
 }
 
 // TCAs retrieves the list of child TCAs of the Subnet
@@ -226,12 +251,6 @@ func (o *Subnet) VirtualIPs(info *bambou.FetchingInfo) (VirtualIPsList, *bambou.
 	return list, err
 }
 
-// CreateVirtualIP creates a new child VirtualIP under the Subnet
-func (o *Subnet) CreateVirtualIP(child *VirtualIP) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // IKEGatewayConnections retrieves the list of child IKEGatewayConnections of the Subnet
 func (o *Subnet) IKEGatewayConnections(info *bambou.FetchingInfo) (IKEGatewayConnectionsList, *bambou.Error) {
 
@@ -273,12 +292,6 @@ func (o *Subnet) VMs(info *bambou.FetchingInfo) (VMsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateVM creates a new child VM under the Subnet
-func (o *Subnet) CreateVM(child *VM) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // VMInterfaces retrieves the list of child VMInterfaces of the Subnet
 func (o *Subnet) VMInterfaces(info *bambou.FetchingInfo) (VMInterfacesList, *bambou.Error) {
 
@@ -287,8 +300,16 @@ func (o *Subnet) VMInterfaces(info *bambou.FetchingInfo) (VMInterfacesList, *bam
 	return list, err
 }
 
-// CreateVMInterface creates a new child VMInterface under the Subnet
-func (o *Subnet) CreateVMInterface(child *VMInterface) *bambou.Error {
+// EnterprisePermissions retrieves the list of child EnterprisePermissions of the Subnet
+func (o *Subnet) EnterprisePermissions(info *bambou.FetchingInfo) (EnterprisePermissionsList, *bambou.Error) {
+
+	var list EnterprisePermissionsList
+	err := bambou.CurrentSession().FetchChildren(o, EnterprisePermissionIdentity, &list, info)
+	return list, err
+}
+
+// CreateEnterprisePermission creates a new child EnterprisePermission under the Subnet
+func (o *Subnet) CreateEnterprisePermission(child *EnterprisePermission) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }
@@ -301,24 +322,12 @@ func (o *Subnet) Containers(info *bambou.FetchingInfo) (ContainersList, *bambou.
 	return list, err
 }
 
-// CreateContainer creates a new child Container under the Subnet
-func (o *Subnet) CreateContainer(child *Container) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // ContainerInterfaces retrieves the list of child ContainerInterfaces of the Subnet
 func (o *Subnet) ContainerInterfaces(info *bambou.FetchingInfo) (ContainerInterfacesList, *bambou.Error) {
 
 	var list ContainerInterfacesList
 	err := bambou.CurrentSession().FetchChildren(o, ContainerInterfaceIdentity, &list, info)
 	return list, err
-}
-
-// CreateContainerInterface creates a new child ContainerInterface under the Subnet
-func (o *Subnet) CreateContainerInterface(child *ContainerInterface) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // ContainerResyncs retrieves the list of child ContainerResyncs of the Subnet
@@ -377,18 +386,26 @@ func (o *Subnet) CreateIPReservation(child *IPReservation) *bambou.Error {
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
+// ProxyARPFilters retrieves the list of child ProxyARPFilters of the Subnet
+func (o *Subnet) ProxyARPFilters(info *bambou.FetchingInfo) (ProxyARPFiltersList, *bambou.Error) {
+
+	var list ProxyARPFiltersList
+	err := bambou.CurrentSession().FetchChildren(o, ProxyARPFilterIdentity, &list, info)
+	return list, err
+}
+
+// CreateProxyARPFilter creates a new child ProxyARPFilter under the Subnet
+func (o *Subnet) CreateProxyARPFilter(child *ProxyARPFilter) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
 // Statistics retrieves the list of child Statistics of the Subnet
 func (o *Subnet) Statistics(info *bambou.FetchingInfo) (StatisticsList, *bambou.Error) {
 
 	var list StatisticsList
 	err := bambou.CurrentSession().FetchChildren(o, StatisticsIdentity, &list, info)
 	return list, err
-}
-
-// CreateStatistics creates a new child Statistics under the Subnet
-func (o *Subnet) CreateStatistics(child *Statistics) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // StatisticsPolicies retrieves the list of child StatisticsPolicies of the Subnet
@@ -411,10 +428,4 @@ func (o *Subnet) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Er
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the Subnet
-func (o *Subnet) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

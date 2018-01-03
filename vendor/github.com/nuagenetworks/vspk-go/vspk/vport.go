@@ -38,10 +38,19 @@ var VPortIdentity = bambou.Identity{
 // VPortsList represents a list of VPorts
 type VPortsList []*VPort
 
-// VPortsAncestor is the interface of an ancestor of a VPort must implement.
+// VPortsAncestor is the interface that an ancestor of a VPort must implement.
+// An Ancestor is defined as an entity that has VPort as a descendant.
+// An Ancestor can get a list of its child VPorts, but not necessarily create one.
 type VPortsAncestor interface {
 	VPorts(*bambou.FetchingInfo) (VPortsList, *bambou.Error)
-	CreateVPorts(*VPort) *bambou.Error
+}
+
+// VPortsParent is the interface that a parent of a VPort must implement.
+// A Parent is defined as an entity that has VPort as a child.
+// A Parent is an Ancestor which can create a VPort.
+type VPortsParent interface {
+	VPortsAncestor
+	CreateVPort(*VPort) *bambou.Error
 }
 
 // VPort represents the model of a vport
@@ -55,16 +64,23 @@ type VPort struct {
 	Name                                string `json:"name,omitempty"`
 	HasAttachedInterfaces               bool   `json:"hasAttachedInterfaces"`
 	LastUpdatedBy                       string `json:"lastUpdatedBy,omitempty"`
+	GatewayMACMoveRole                  string `json:"gatewayMACMoveRole,omitempty"`
 	Active                              bool   `json:"active"`
 	AddressSpoofing                     string `json:"addressSpoofing,omitempty"`
+	SegmentationID                      int    `json:"segmentationID,omitempty"`
+	SegmentationType                    string `json:"segmentationType,omitempty"`
 	Description                         string `json:"description,omitempty"`
 	EntityScope                         string `json:"entityScope,omitempty"`
 	DomainID                            string `json:"domainID,omitempty"`
 	ZoneID                              string `json:"zoneID,omitempty"`
 	OperationalState                    string `json:"operationalState,omitempty"`
+	TrunkRole                           string `json:"trunkRole,omitempty"`
 	AssociatedFloatingIPID              string `json:"associatedFloatingIPID,omitempty"`
 	AssociatedMulticastChannelMapID     string `json:"associatedMulticastChannelMapID,omitempty"`
+	AssociatedSSID                      string `json:"associatedSSID,omitempty"`
 	AssociatedSendMulticastChannelMapID string `json:"associatedSendMulticastChannelMapID,omitempty"`
+	AssociatedTrunkID                   string `json:"associatedTrunkID,omitempty"`
+	SubType                             string `json:"subType,omitempty"`
 	MultiNICVPortID                     string `json:"multiNICVPortID,omitempty"`
 	Multicast                           string `json:"multicast,omitempty"`
 	ExternalID                          string `json:"externalID,omitempty"`
@@ -76,10 +92,14 @@ type VPort struct {
 func NewVPort() *VPort {
 
 	return &VPort{
+		DPI:              "INHERITED",
+		AddressSpoofing:  "INHERITED",
+		SegmentationType: "NONE",
 		OperationalState: "INIT",
+		TrunkRole:        "NONE",
+		SubType:          "NONE",
 		Multicast:        "INHERITED",
 		Type:             "VM",
-		AddressSpoofing:  "INHERITED",
 	}
 }
 
@@ -174,10 +194,26 @@ func (o *VPort) AggregateMetadatas(info *bambou.FetchingInfo) (AggregateMetadata
 	return list, err
 }
 
-// CreateAggregateMetadata creates a new child AggregateMetadata under the VPort
-func (o *VPort) CreateAggregateMetadata(child *AggregateMetadata) *bambou.Error {
+// BGPNeighbors retrieves the list of child BGPNeighbors of the VPort
+func (o *VPort) BGPNeighbors(info *bambou.FetchingInfo) (BGPNeighborsList, *bambou.Error) {
+
+	var list BGPNeighborsList
+	err := bambou.CurrentSession().FetchChildren(o, BGPNeighborIdentity, &list, info)
+	return list, err
+}
+
+// CreateBGPNeighbor creates a new child BGPNeighbor under the VPort
+func (o *VPort) CreateBGPNeighbor(child *BGPNeighbor) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// EgressACLEntryTemplates retrieves the list of child EgressACLEntryTemplates of the VPort
+func (o *VPort) EgressACLEntryTemplates(info *bambou.FetchingInfo) (EgressACLEntryTemplatesList, *bambou.Error) {
+
+	var list EgressACLEntryTemplatesList
+	err := bambou.CurrentSession().FetchChildren(o, EgressACLEntryTemplateIdentity, &list, info)
+	return list, err
 }
 
 // DHCPOptions retrieves the list of child DHCPOptions of the VPort
@@ -216,12 +252,6 @@ func (o *VPort) Alarms(info *bambou.FetchingInfo) (AlarmsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateAlarm creates a new child Alarm under the VPort
-func (o *VPort) CreateAlarm(child *Alarm) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the VPort
 func (o *VPort) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
 
@@ -244,12 +274,6 @@ func (o *VPort) VMs(info *bambou.FetchingInfo) (VMsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateVM creates a new child VM under the VPort
-func (o *VPort) CreateVM(child *VM) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // VMInterfaces retrieves the list of child VMInterfaces of the VPort
 func (o *VPort) VMInterfaces(info *bambou.FetchingInfo) (VMInterfacesList, *bambou.Error) {
 
@@ -260,6 +284,44 @@ func (o *VPort) VMInterfaces(info *bambou.FetchingInfo) (VMInterfacesList, *bamb
 
 // CreateVMInterface creates a new child VMInterface under the VPort
 func (o *VPort) CreateVMInterface(child *VMInterface) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// VNFInterfaces retrieves the list of child VNFInterfaces of the VPort
+func (o *VPort) VNFInterfaces(info *bambou.FetchingInfo) (VNFInterfacesList, *bambou.Error) {
+
+	var list VNFInterfacesList
+	err := bambou.CurrentSession().FetchChildren(o, VNFInterfaceIdentity, &list, info)
+	return list, err
+}
+
+// IngressACLEntryTemplates retrieves the list of child IngressACLEntryTemplates of the VPort
+func (o *VPort) IngressACLEntryTemplates(info *bambou.FetchingInfo) (IngressACLEntryTemplatesList, *bambou.Error) {
+
+	var list IngressACLEntryTemplatesList
+	err := bambou.CurrentSession().FetchChildren(o, IngressACLEntryTemplateIdentity, &list, info)
+	return list, err
+}
+
+// IngressAdvFwdEntryTemplates retrieves the list of child IngressAdvFwdEntryTemplates of the VPort
+func (o *VPort) IngressAdvFwdEntryTemplates(info *bambou.FetchingInfo) (IngressAdvFwdEntryTemplatesList, *bambou.Error) {
+
+	var list IngressAdvFwdEntryTemplatesList
+	err := bambou.CurrentSession().FetchChildren(o, IngressAdvFwdEntryTemplateIdentity, &list, info)
+	return list, err
+}
+
+// Jobs retrieves the list of child Jobs of the VPort
+func (o *VPort) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
+
+	var list JobsList
+	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
+	return list, err
+}
+
+// CreateJob creates a new child Job under the VPort
+func (o *VPort) CreateJob(child *Job) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }
@@ -291,12 +353,6 @@ func (o *VPort) Containers(info *bambou.FetchingInfo) (ContainersList, *bambou.E
 	return list, err
 }
 
-// CreateContainer creates a new child Container under the VPort
-func (o *VPort) CreateContainer(child *Container) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // ContainerInterfaces retrieves the list of child ContainerInterfaces of the VPort
 func (o *VPort) ContainerInterfaces(info *bambou.FetchingInfo) (ContainerInterfacesList, *bambou.Error) {
 
@@ -305,24 +361,12 @@ func (o *VPort) ContainerInterfaces(info *bambou.FetchingInfo) (ContainerInterfa
 	return list, err
 }
 
-// CreateContainerInterface creates a new child ContainerInterface under the VPort
-func (o *VPort) CreateContainerInterface(child *ContainerInterface) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // PortMappings retrieves the list of child PortMappings of the VPort
 func (o *VPort) PortMappings(info *bambou.FetchingInfo) (PortMappingsList, *bambou.Error) {
 
 	var list PortMappingsList
 	err := bambou.CurrentSession().FetchChildren(o, PortMappingIdentity, &list, info)
 	return list, err
-}
-
-// CreatePortMapping creates a new child PortMapping under the VPort
-func (o *VPort) CreatePortMapping(child *PortMapping) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // QOSs retrieves the list of child QOSs of the VPort
@@ -408,10 +452,12 @@ func (o *VPort) VRSs(info *bambou.FetchingInfo) (VRSsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateVRS creates a new child VRS under the VPort
-func (o *VPort) CreateVRS(child *VRS) *bambou.Error {
+// Trunks retrieves the list of child Trunks of the VPort
+func (o *VPort) Trunks(info *bambou.FetchingInfo) (TrunksList, *bambou.Error) {
 
-	return bambou.CurrentSession().CreateChild(o, child)
+	var list TrunksList
+	err := bambou.CurrentSession().FetchChildren(o, TrunkIdentity, &list, info)
+	return list, err
 }
 
 // Statistics retrieves the list of child Statistics of the VPort
@@ -420,12 +466,6 @@ func (o *VPort) Statistics(info *bambou.FetchingInfo) (StatisticsList, *bambou.E
 	var list StatisticsList
 	err := bambou.CurrentSession().FetchChildren(o, StatisticsIdentity, &list, info)
 	return list, err
-}
-
-// CreateStatistics creates a new child Statistics under the VPort
-func (o *VPort) CreateStatistics(child *Statistics) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // StatisticsPolicies retrieves the list of child StatisticsPolicies of the VPort
@@ -448,10 +488,4 @@ func (o *VPort) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Err
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the VPort
-func (o *VPort) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

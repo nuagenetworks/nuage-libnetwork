@@ -20,7 +20,6 @@ package driver
 import (
 	"encoding/json"
 	"flag"
-	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/plugins"
 	nuageApi "github.com/nuagenetworks/nuage-libnetwork/api"
 	"github.com/nuagenetworks/nuage-libnetwork/audit"
@@ -28,6 +27,7 @@ import (
 	nuageConfig "github.com/nuagenetworks/nuage-libnetwork/config"
 	"github.com/nuagenetworks/nuage-libnetwork/ipam"
 	"github.com/nuagenetworks/nuage-libnetwork/remote"
+	log "github.com/sirupsen/logrus"
 	"net"
 	"net/http"
 	"os"

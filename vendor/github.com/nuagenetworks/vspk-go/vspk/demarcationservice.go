@@ -38,10 +38,19 @@ var DemarcationServiceIdentity = bambou.Identity{
 // DemarcationServicesList represents a list of DemarcationServices
 type DemarcationServicesList []*DemarcationService
 
-// DemarcationServicesAncestor is the interface of an ancestor of a DemarcationService must implement.
+// DemarcationServicesAncestor is the interface that an ancestor of a DemarcationService must implement.
+// An Ancestor is defined as an entity that has DemarcationService as a descendant.
+// An Ancestor can get a list of its child DemarcationServices, but not necessarily create one.
 type DemarcationServicesAncestor interface {
 	DemarcationServices(*bambou.FetchingInfo) (DemarcationServicesList, *bambou.Error)
-	CreateDemarcationServices(*DemarcationService) *bambou.Error
+}
+
+// DemarcationServicesParent is the interface that a parent of a DemarcationService must implement.
+// A Parent is defined as an entity that has DemarcationService as a child.
+// A Parent is an Ancestor which can create a DemarcationService.
+type DemarcationServicesParent interface {
+	DemarcationServicesAncestor
+	CreateDemarcationService(*DemarcationService) *bambou.Error
 }
 
 // DemarcationService represents the model of a demarcationservice
@@ -51,7 +60,7 @@ type DemarcationService struct {
 	ParentType          string `json:"parentType,omitempty"`
 	Owner               string `json:"owner,omitempty"`
 	RouteDistinguisher  string `json:"routeDistinguisher,omitempty"`
-	Priority            string `json:"priority,omitempty"`
+	Priority            int    `json:"priority,omitempty"`
 	AssociatedGatewayID string `json:"associatedGatewayID,omitempty"`
 	AssociatedVLANID    string `json:"associatedVLANID,omitempty"`
 	Type                string `json:"type,omitempty"`
