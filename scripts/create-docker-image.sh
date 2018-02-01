@@ -12,7 +12,7 @@ if [ -z ${version} ]; then
     exit 1
 fi
 
-go build
+#go build
 
 docker build -t nuage-plugin:${version} -f Dockerfile .
 
