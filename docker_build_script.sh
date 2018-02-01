@@ -14,8 +14,8 @@ docker run --privileged \
     -e GOPATH=/BUILD/go \
     -e USER_ID=${USER_ID} \
     -e GROUP_ID=${GROUP_ID} \
-    -v /home/rajesh/workspace/nuage-libnetwork:/BUILD/go/src/github.com/nuagenetworks/nuage-libnetwork \
+    -v ${PWD}:/BUILD/go/src/github.com/nuagenetworks/nuage-libnetwork \
     -v /usr/global:/usr/global \
     -v /root:/root \
-    libnet \
+    registry.mv.nuagenetworks.net:5000/build/nuage-libnetwork \
     sh scripts/buildRPM.sh
