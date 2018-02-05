@@ -7,6 +7,7 @@ GROUP_ID=$(id -g)
 DOCKERFILE="Dockerfile.build"
 PWD=$(pwd)
 docker run --privileged \
+    --rm \
     -e NUAGE_PROJECT=${NUAGE_PROJECT} \
     -e NUAGE_BUILD_RELEASE=${NUAGE_BUILD_RELEASE} \
     -e NUAGE_BUILD_NUMBER=${NUAGE_BUILD_NUMBER} \
