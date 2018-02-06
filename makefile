@@ -5,9 +5,9 @@ build_docker_image:
 	  docker build -t registry.mv.nuagenetworks.net:5000/build/nuage-libnetwork -f Dockerfile.build .
 
 run_container:
-	./docker_build_script.sh build_nuage_libnetwork
+	./docker_build_script.sh build_all
 
 build_nuage_libnetwork:
 	./scripts/buildRPM.sh
 	./scripts/create-docker-image.sh
-	./scripts/create-v2-plugin.sh
+	yes | ./scripts/create-v2-plugin.sh registry.mv.nuagenetworks.net:5000/nuage-plugin:latest
