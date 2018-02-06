@@ -6,6 +6,9 @@ USER_ID=$(id -u)
 GROUP_ID=$(id -g)
 DOCKERFILE="Dockerfile.build"
 PWD=$(pwd)
+
+MAKE_TARGET=${1}
+
 docker run --privileged \
     --rm \
     -e NUAGE_PROJECT=${NUAGE_PROJECT} \
@@ -19,4 +22,4 @@ docker run --privileged \
     -v /usr/global:/usr/global \
     -v /root:/root \
     registry.mv.nuagenetworks.net:5000/build/nuage-libnetwork \
-    sh scripts/buildRPM.sh
+    make ${MAKE_TARGET}

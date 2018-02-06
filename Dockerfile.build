@@ -1,6 +1,11 @@
 FROM registry.mv.nuagenetworks.net:5000/build/golang:1.9
 
-RUN yum install -y rpm-build &&\
+RUN yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo &&\
+    yum install -y rpm-build \
+    yum-utils \
+    device-mapper-persistent-data \
+    lvm2 \
+    docker-ce &&\
     mkdir -p /BUILD/go/src/github.com/nuagenetworks/nuage-libnetwork
 
 WORKDIR /BUILD/go/src/github.com/nuagenetworks/nuage-libnetwork
