@@ -21,5 +21,6 @@ docker run --privileged \
     -v ${PWD}:/BUILD/go/src/github.com/nuagenetworks/nuage-libnetwork \
     -v /usr/global:/usr/global \
     -v /root:/root \
+    -v /var/run/docker.sock:/var/run/docker.sock \
     registry.mv.nuagenetworks.net:5000/build/nuage-libnetwork \
     make ${MAKE_TARGET}
