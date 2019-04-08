@@ -870,9 +870,7 @@ func (nuagevsd *NuageVSDClient) HealthCheck(vsdReq nuageConfig.NuageEventMetadat
 
 func (nuagevsd *NuageVSDClient) Shutdown() {
 	log.Infof("Nuage VSD client is shutting down")
-	for i := 0; i < 10; i++ {
-		close(nuagevsd.stop)
-	}
+	close(nuagevsd.stop)
 }
 
 func (nuagevsd *NuageVSDClient) makeVSDCall(vsdRequest func() *bambou.Error, msg string) {
