@@ -18,10 +18,12 @@
 package client
 
 import (
+	"bytes"
 	"crypto/md5"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types"
@@ -67,6 +69,7 @@ type NuageVSDClient struct {
 	vrsChannel               chan *nuageApi.VRSEvent
 	dockerChannel            chan *nuageApi.DockerEvent
 	infiniteUpdateRetryQueue chan nuageConfig.NuageEventMetadata
+	failed                   int
 }
 
 // NewNuageVSDClient factory method for VSD client
@@ -828,6 +831,48 @@ func getHostExternalID() (string, error) {
 	return externalID, nil
 }
 
+func (nuagevsd *NuageVSDClient) HealthCheck(vsdReq nuageConfig.NuageEventMetadata) ([]byte, error) {
+	log.Debugf("Nuage VSD %s Health Check called", vsdReq.Name)
+	vsdContainerList, err := nuagevsd.fetchVSDContainerList()
+	if err != nil {
+		log.Errorf("fetching container list from VSD failed with error: %v after all retries", err)
+		return []byte{}, err
+	}
+
+	switch vsdReq.Name {
+	case "containers":
+
+		data, err := json.Marshal(vsdContainerList)
+		if err != nil {
+			log.Errorf("container list conversion failed with error: %v", err)
+			log.Errorf("Nuage VSD Health Check completed: FAIL")
+			return []byte{}, err
+		}
+
+		log.Debugf("Nuage VSD Health Check for containers completed: PASS")
+		if len(data) > 0 {
+			if bytes.Equal(data, []byte("null")) == false {
+				json_data := [][]byte{[]byte("{\"containers\":"), data, []byte("}")}
+				return bytes.Join(json_data, []byte{}), nil
+			}
+		}
+
+		return []byte("{\"status\": \"IPAM Driver is healthy\",\"containers\": []}"), nil
+
+	default:
+		log.Debugf("Nuage VSD Health Check completed: PASS")
+		return []byte("{\"status\": \"IPAM Driver is healthy\"}"), nil
+	}
+
+	log.Debugf("Nuage VSD Health Check completed: FAIL")
+	return []byte{}, errors.New("IPAM Driver is not healthy")
+}
+
+func (nuagevsd *NuageVSDClient) Shutdown() {
+	log.Infof("Nuage VSD client is shutting down")
+	close(nuagevsd.stop)
+}
+
 func (nuagevsd *NuageVSDClient) makeVSDCall(vsdRequest func() *bambou.Error, msg string) {
 	for i := 0; i < nuagevsd.numOfRetryAttempts; i++ {
 		err := vsdRequest()
@@ -851,7 +896,14 @@ func (nuagevsd *NuageVSDClient) makeVSDCall(vsdRequest func() *bambou.Error, msg
 		}
 		log.Errorf("Try = (%d). %s on vsd failed with error %v", i, msg, err)
 	}
+
 	log.Errorf("%s on vsd failed after all retries", msg)
+	nuagevsd.failed++
+
+	if nuagevsd.failed > 5 {
+		log.Errorf("Restarting the plugin due to multiple failed attempts to contact Nuage VSD")
+		nuagevsd.Shutdown()
+	}
 }
 
 //Start listens for events on VSD channel
@@ -873,6 +925,7 @@ func (nuagevsd *NuageVSDClient) Start() {
 			}
 			time.Sleep(100 * time.Millisecond)
 		case <-nuagevsd.stop:
+			log.Infof("Stopped Nuage VSD Client")
 			return
 		}
 	}
@@ -916,6 +969,22 @@ func (nuagevsd *NuageVSDClient) handleVSDEvent(event *nuageApi.VSDEvent) {
 	case nuageApi.VSDAuditEvent:
 		go func() {
 			nuagevsd.auditVSD()
+			event.VSDRespObjectChan <- &nuageApi.VSDRespObject{}
+		}()
+
+	case nuageApi.VSDHealthCheckEvent:
+		go func() {
+			data, err := nuagevsd.HealthCheck(event.VSDReqObject.(nuageConfig.NuageEventMetadata))
+			if err != nil {
+				event.VSDRespObjectChan <- &nuageApi.VSDRespObject{Error: err}
+			} else {
+				event.VSDRespObjectChan <- &nuageApi.VSDRespObject{VSDData: data}
+			}
+		}()
+
+	case nuageApi.VSDShutdownEvent:
+		go func() {
+			nuagevsd.Shutdown()
 			event.VSDRespObjectChan <- &nuageApi.VSDRespObject{}
 		}()
 

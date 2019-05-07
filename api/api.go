@@ -48,6 +48,8 @@ const (
 	VSDAuditContainersEvent  VSDEventType = "AUDITVSDCONTAINERS"
 	VSDGetContainerInfoEvent VSDEventType = "GETCONTAINERMAC"
 	VSDAuditEvent            VSDEventType = "AUDIT"
+	VSDHealthCheckEvent      VSDEventType = "HEALTH"
+	VSDShutdownEvent         VSDEventType = "SHUTDOWN"
 )
 
 //DockerEventType defines DockerEvents

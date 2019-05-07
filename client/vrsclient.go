@@ -403,6 +403,7 @@ func (nvrsc *NuageVRSClient) Start() {
 		case <-nvrsc.connectionRetry:
 			nvrsc.handleVRSConnectionEvent()
 		case <-nvrsc.stop:
+			log.Infof("Stopped Nuage VRS Client")
 			return
 		}
 	}

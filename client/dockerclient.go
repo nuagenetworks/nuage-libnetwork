@@ -351,6 +351,7 @@ func (nuagedocker *NuageDockerClient) Start() {
 		case <-nuagedocker.connectionRetry:
 			nuagedocker.handleConnectionRetry()
 		case <-nuagedocker.stop:
+			log.Infof("Stopped Docker Engine Client")
 			return
 		}
 	}

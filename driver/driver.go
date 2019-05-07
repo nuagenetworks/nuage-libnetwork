@@ -191,6 +191,7 @@ func (nuagedriver *NuageLibNetworkDriver) handleSocketCalls(serveMux *http.Serve
 		log.Errorf("Listening on socket failed with error: %v", err)
 		return err
 	}
+	l.SetUnlinkOnClose(true)
 	defer l.Close()
 
 	server := &http.Server{Handler: serveMux}

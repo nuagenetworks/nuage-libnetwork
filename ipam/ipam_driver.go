@@ -66,6 +66,8 @@ func (nuageipam *NuageIPAMDriver) registerCalls(serveMux *http.ServeMux) {
 		"/IpamDriver.RequestAddress":          nuageipam.RequestAddress,
 		"/IpamDriver.ReleaseAddress":          nuageipam.ReleaseAddress,
 		"/IpamDriver.GetCapabilities":         nuageipam.GetCapabilities,
+		"/IpamDriver.Health":                  nuageipam.HealthCheck,
+		"/IpamDriver.Shutdown":                nuageipam.Shutdown,
 	}
 
 	if nuageipam.pluginVersion == "v1" {
@@ -299,6 +301,42 @@ func (nuageipam *NuageIPAMDriver) GateWayAddressRequest(r *ipam.RequestAddressRe
 	}
 	log.Infof("Gateway address request response is %+v", resp)
 	return &resp, nil
+}
+
+// HealthCheck returns IPAM driver status
+func (nuageipam *NuageIPAMDriver) HealthCheck(w http.ResponseWriter, req *http.Request) {
+	log.Debugf("Health Check started")
+	params := req.URL.Query()
+	vsdReq := nuageConfig.NuageEventMetadata{}
+	vsdReq.Name = "default"
+
+	if len(params) > 0 {
+		if params.Get("containers") == "true" {
+			vsdReq.Name = "containers"
+		}
+		if params.Get("networks") == "true" {
+			vsdReq.Name = "networks"
+		}
+	}
+
+	vsdResp := nuageApi.VSDChanRequest(nuageipam.vsdChannel, nuageApi.VSDHealthCheckEvent, vsdReq)
+	if vsdResp.Error != nil {
+		log.Errorf("IPAM Driver failed with error : %v", vsdResp.Error)
+		utils.HandleHTTPError(w, "Health Check", vsdResp.Error)
+		return
+	}
+
+	data := vsdResp.VSDData.([]byte)
+	w.Write(data)
+	log.Debugf("Health Check finished")
+}
+
+func (nuageipam *NuageIPAMDriver) Shutdown(w http.ResponseWriter, req *http.Request) {
+	log.Debugf("Nuage LibNetwork IPAM plugin shutdown started")
+	nuageApi.VSDChanRequest(nuageipam.vsdChannel, nuageApi.VSDShutdownEvent, nil)
+	w.Write([]byte("{\"status\":\"Nuage LibNetwork IPAM plugin shutdown in progress\"}"))
+	log.Debugf("Nuage LibNetwork IPAM plugin shutdown complete")
+	return
 }
 
 func (nuageipam *NuageIPAMDriver) getNetworkInfo(poolID, source string) (*nuageConfig.NuageNetworkParams, error) {
