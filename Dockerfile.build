@@ -1,4 +1,4 @@
-FROM registry.mv.nuagenetworks.net:5000/build/golang:1.9
+FROM registry.mv.nuagenetworks.net:5000/build/golang:1.12
 
 RUN yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo &&\
     yum install -y rpm-build \
