@@ -1,4 +1,6 @@
-FROM registry.mv.nuagenetworks.net:5000/build/golang:1.12
+ARG REGISTRY_URL
+
+FROM ${REGISTRY_URL}/golang:1.12
 
 RUN mkdir -p /BUILD/go/src/github.com/nuagenetworks/nuage-libnetwork
 
