@@ -117,7 +117,7 @@ func (nuageremote *NuageRemoteDriver) CreateNetwork(w http.ResponseWriter, req *
 		utils.HandleHTTPError(w, "Unmarshal CreateNetwork request", err)
 		return
 	}
-	log.Debugf("Nuage remote driver create network %s called", r.NetworkID)
+	log.Debugf("Nuage remote driver create network %v called", r)
 	w.Write([]byte(utils.EmptyHTTPResponse))
 }
 
