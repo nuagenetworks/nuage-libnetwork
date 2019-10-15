@@ -695,10 +695,11 @@ func (nuagevsd *NuageVSDClient) auditVSD() {
 		}
 	}
 
+	deleteIds := []string{}
+
 	for id, count := range nuagevsd.auditContainers {
 		if count >= 10 {
 			for _, vsdContainer := range vsdContainerList {
-
 				if vsdContainer.UUID != id {
 					continue
 				}
@@ -723,7 +724,12 @@ func (nuagevsd *NuageVSDClient) auditVSD() {
 				}
 				nuagevsd.ipToVSDContainerMap.Write(nwInfo.String()+"-"+containerInterface.IPAddress, nil)
 			}
+			deleteIds = append(deleteIds, id)
 		}
+	}
+
+	for _, id := range deleteIds {
+		delete(nuagevsd.auditContainers, id)
 	}
 	nuagevsd.cleanupStaleHostPorts()
 	log.Debugf("VSD Audit completed")
