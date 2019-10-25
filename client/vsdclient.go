@@ -23,15 +23,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
-	"github.com/docker/docker/api/types"
-	"github.com/mitchellh/mapstructure"
-	"github.com/nuagenetworks/go-bambou/bambou"
-	nuageApi "github.com/nuagenetworks/nuage-libnetwork/api"
-	nuageConfig "github.com/nuagenetworks/nuage-libnetwork/config"
-	"github.com/nuagenetworks/nuage-libnetwork/utils"
-	"github.com/nuagenetworks/vspk-go/vspk"
-	"github.com/vishvananda/netlink"
 	"io"
 	"math"
 	"net"
@@ -42,6 +33,16 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/docker/docker/api/types"
+	"github.com/mitchellh/mapstructure"
+	"github.com/nuagenetworks/go-bambou/bambou"
+	nuageApi "github.com/nuagenetworks/nuage-libnetwork/api"
+	nuageConfig "github.com/nuagenetworks/nuage-libnetwork/config"
+	"github.com/nuagenetworks/nuage-libnetwork/utils"
+	"github.com/nuagenetworks/vspk-go/vspk"
+	"github.com/vishvananda/netlink"
 )
 
 //NuageVSDClient contains necessary information for a VSD session
@@ -67,6 +68,7 @@ type NuageVSDClient struct {
 	vrsChannel               chan *nuageApi.VRSEvent
 	dockerChannel            chan *nuageApi.DockerEvent
 	infiniteUpdateRetryQueue chan nuageConfig.NuageEventMetadata
+	auditContainers          map[string]int
 }
 
 // NewNuageVSDClient factory method for VSD client
@@ -87,6 +89,7 @@ func NewNuageVSDClient(config *nuageConfig.NuageLibNetworkConfig, channels *nuag
 	nuagevsd.intfSeqNumTable = utils.NewHashMap()
 	nuagevsd.connectionRetry = make(chan bool)
 	nuagevsd.connectionActive = make(chan bool)
+	nuagevsd.auditContainers = make(map[string]int)
 	nuagevsd.infiniteUpdateRetryQueue = make(chan nuageConfig.NuageEventMetadata)
 	nuagevsd.hypervisorID, err = getHostExternalID()
 	if err != nil {
@@ -683,24 +686,50 @@ func (nuagevsd *NuageVSDClient) auditVSD() {
 			continue
 		}
 		containerInterface := vsdContainer.Interfaces[0].(*vspk.ContainerInterface)
-		nwInfo := nuageConfig.NuageNetworkParams{
-			Organization: vsdContainer.EnterpriseName,
-			Domain:       containerInterface.DomainName,
-			SubnetName:   containerInterface.NetworkName,
-		}
 		if _, ok := vsdLookup[containerInterface.IPAddress+containerInterface.MAC]; !ok {
-			nuagevsd.makeVSDCall(
-				func() *bambou.Error {
-					log.Debugf("Trying to delete container %s on VSD", vsdContainer.UUID)
-					err := vsdContainer.Delete()
-					log.Debugf("Request to delete container %s complete", vsdContainer.UUID)
-					return err
-				}, "deleting container")
-			if err != nil {
-				log.Errorf("deleting container with ID %s on VSD failed with error: %v after all retries", vsdContainer.ID, err)
+			if _, present := nuagevsd.auditContainers[vsdContainer.UUID]; !present {
+				nuagevsd.auditContainers[vsdContainer.UUID]++
+			} else {
+				nuagevsd.auditContainers[vsdContainer.UUID] = 1
 			}
-			nuagevsd.ipToVSDContainerMap.Write(nwInfo.String()+"-"+containerInterface.IPAddress, nil)
 		}
+	}
+
+	deleteIds := []string{}
+
+	for id, count := range nuagevsd.auditContainers {
+		if count >= 10 {
+			for _, vsdContainer := range vsdContainerList {
+				if vsdContainer.UUID != id {
+					continue
+				}
+				if len(vsdContainer.Interfaces) == 0 {
+					continue
+				}
+				containerInterface := vsdContainer.Interfaces[0].(*vspk.ContainerInterface)
+				nwInfo := nuageConfig.NuageNetworkParams{
+					Organization: vsdContainer.EnterpriseName,
+					Domain:       containerInterface.DomainName,
+					SubnetName:   containerInterface.NetworkName,
+				}
+				nuagevsd.makeVSDCall(
+					func() *bambou.Error {
+						log.Debugf("Trying to delete container %s on VSD with ip %s and mac %s", vsdContainer.UUID, containerInterface.IPAddress, containerInterface.MAC)
+						err := vsdContainer.Delete()
+						log.Debugf("Request to delete container %s complete", vsdContainer.UUID)
+						return err
+					}, "deleting container")
+				if err != nil {
+					log.Errorf("deleting container with ID %s on VSD failed with error: %v after all retries", vsdContainer.ID, err)
+				}
+				nuagevsd.ipToVSDContainerMap.Write(nwInfo.String()+"-"+containerInterface.IPAddress, nil)
+			}
+			deleteIds = append(deleteIds, id)
+		}
+	}
+
+	for _, id := range deleteIds {
+		delete(nuagevsd.auditContainers, id)
 	}
 	nuagevsd.cleanupStaleHostPorts()
 	log.Debugf("VSD Audit completed")

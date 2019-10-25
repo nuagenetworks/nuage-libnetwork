@@ -19,6 +19,12 @@ package client
 
 import (
 	"fmt"
+	"net"
+	"os"
+	"regexp"
+	"strings"
+	"time"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
@@ -28,11 +34,6 @@ import (
 	nuageConfig "github.com/nuagenetworks/nuage-libnetwork/config"
 	"github.com/nuagenetworks/nuage-libnetwork/utils"
 	"golang.org/x/net/context"
-	"net"
-	"os"
-	"regexp"
-	"strings"
-	"time"
 )
 
 //NuageDockerClient structure holds docker client

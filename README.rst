@@ -1,3 +1,5 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/nuagenetworks/nuage-libnetwork)](https://goreportcard.com/report/github.com/nuagenetworks/nuage-libnetwork)
+
 .. _docker-20-libnetwork-integration:
 
 .. include:: ../lib/doc-includes/VSDA-icons.inc
