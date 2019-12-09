@@ -18,8 +18,8 @@
 package audit
 
 import (
-	log "github.com/Sirupsen/logrus"
 	nuageApi "github.com/nuagenetworks/nuage-libnetwork/api"
+	log "github.com/sirupsen/logrus"
 	"time"
 )
 

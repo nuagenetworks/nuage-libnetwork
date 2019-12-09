@@ -40,7 +40,7 @@ type addrSpace struct {
 }
 
 // AddressRange specifies first and last ip ordinal which
-// identifies a range in a pool of addresses
+// identify a range in a a pool of addresses
 type AddressRange struct {
 	Sub        *net.IPNet
 	Start, End uint64
@@ -85,7 +85,7 @@ func (s *SubnetKey) String() string {
 	return k
 }
 
-// FromString populates the SubnetKey object reading it from string
+// FromString populate the SubnetKey object reading it from string
 func (s *SubnetKey) FromString(str string) error {
 	if str == "" || !strings.Contains(str, "/") {
 		return types.BadRequestErrorf("invalid string form for subnetkey: %s", str)
@@ -257,15 +257,12 @@ func (aSpace *addrSpace) New() datastore.KVObject {
 	}
 }
 
-func (aSpace *addrSpace) updatePoolDBOnAdd(k SubnetKey, nw *net.IPNet, ipr *AddressRange, pdf bool) (func() error, error) {
+func (aSpace *addrSpace) updatePoolDBOnAdd(k SubnetKey, nw *net.IPNet, ipr *AddressRange) (func() error, error) {
 	aSpace.Lock()
 	defer aSpace.Unlock()
 
 	// Check if already allocated
 	if p, ok := aSpace.subnets[k]; ok {
-		if pdf {
-			return nil, types.InternalMaskableErrorf("predefined pool %s is already reserved", nw)
-		}
 		aSpace.incRefCount(p, 1)
 		return func() error { return nil }, nil
 	}

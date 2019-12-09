@@ -38,10 +38,19 @@ var RedundantPortIdentity = bambou.Identity{
 // RedundantPortsList represents a list of RedundantPorts
 type RedundantPortsList []*RedundantPort
 
-// RedundantPortsAncestor is the interface of an ancestor of a RedundantPort must implement.
+// RedundantPortsAncestor is the interface that an ancestor of a RedundantPort must implement.
+// An Ancestor is defined as an entity that has RedundantPort as a descendant.
+// An Ancestor can get a list of its child RedundantPorts, but not necessarily create one.
 type RedundantPortsAncestor interface {
 	RedundantPorts(*bambou.FetchingInfo) (RedundantPortsList, *bambou.Error)
-	CreateRedundantPorts(*RedundantPort) *bambou.Error
+}
+
+// RedundantPortsParent is the interface that a parent of a RedundantPort must implement.
+// A Parent is defined as an entity that has RedundantPort as a child.
+// A Parent is an Ancestor which can create a RedundantPort.
+type RedundantPortsParent interface {
+	RedundantPortsAncestor
+	CreateRedundantPort(*RedundantPort) *bambou.Error
 }
 
 // RedundantPort represents the model of a nsredundantport
@@ -51,6 +60,7 @@ type RedundantPort struct {
 	ParentType                  string `json:"parentType,omitempty"`
 	Owner                       string `json:"owner,omitempty"`
 	VLANRange                   string `json:"VLANRange,omitempty"`
+	MTU                         int    `json:"MTU,omitempty"`
 	Name                        string `json:"name,omitempty"`
 	LastUpdatedBy               string `json:"lastUpdatedBy,omitempty"`
 	PermittedAction             string `json:"permittedAction,omitempty"`
@@ -61,6 +71,7 @@ type RedundantPort struct {
 	PortPeer1ID                 string `json:"portPeer1ID,omitempty"`
 	PortPeer2ID                 string `json:"portPeer2ID,omitempty"`
 	PortType                    string `json:"portType,omitempty"`
+	Speed                       string `json:"speed,omitempty"`
 	UseUntaggedHeartbeatVlan    bool   `json:"useUntaggedHeartbeatVlan"`
 	UseUserMnemonic             bool   `json:"useUserMnemonic"`
 	UserMnemonic                string `json:"userMnemonic,omitempty"`
@@ -72,7 +83,9 @@ type RedundantPort struct {
 // NewRedundantPort returns a new *RedundantPort
 func NewRedundantPort() *RedundantPort {
 
-	return &RedundantPort{}
+	return &RedundantPort{
+		MTU: 1500,
+	}
 }
 
 // Identity returns the Identity of the object.
@@ -159,10 +172,4 @@ func (o *RedundantPort) NSPorts(info *bambou.FetchingInfo) (NSPortsList, *bambou
 	var list NSPortsList
 	err := bambou.CurrentSession().FetchChildren(o, NSPortIdentity, &list, info)
 	return list, err
-}
-
-// CreateNSPort creates a new child NSPort under the RedundantPort
-func (o *RedundantPort) CreateNSPort(child *NSPort) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

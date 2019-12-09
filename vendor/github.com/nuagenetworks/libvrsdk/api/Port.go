@@ -5,19 +5,12 @@ import (
 	"fmt"
 	"github.com/nuagenetworks/libvrsdk/api/port"
 	"github.com/nuagenetworks/libvrsdk/ovsdb"
+	"github.com/nuagenetworks/libvrsdk/test/util"
 	"github.com/socketplane/libovsdb"
 	"reflect"
 )
 
 type empty struct{}
-
-type ovsdbEventType string
-
-const (
-	add       ovsdbEventType = "ADD"
-	update    ovsdbEventType = "UPDATE"
-	porttable string         = "Nuage_Port_Table"
-)
 
 // PortIPv4Info defines details to be populated
 // for container port resolved in OVSDB
@@ -25,13 +18,18 @@ type PortIPv4Info struct {
 	IPAddr     string
 	Gateway    string
 	Mask       string
+	MAC        string
 	Registered bool
 }
 
-type ovsdbEvent struct {
-	EventType   ovsdbEventType
-	OvsdbObject interface{}
-}
+// Constants for OVSDB table names
+const (
+	bridgeTable    = "Bridge"
+	portTable      = "Port"
+	interfaceTable = "Interface"
+	bridgeName     = "alubr0"
+	OvsDBName      = "Open_vSwitch"
+)
 
 // GetAllPorts returns the slice of all the vport names attached to the VRS
 func (vrsConnection *VRSConnection) GetAllPorts() ([]string, error) {
@@ -178,14 +176,14 @@ func (vrsConnection *VRSConnection) UpdatePortMetadata(name string, metadata map
 	return nil
 }
 
-// GetNuagePortTableUpdate will register with OVSDB
-// for Nuage Port table updates and return as soon as
-// port table entry gets populated
+// RegisterForPortUpdates will help register via channel
+// for VRS port table updates
 func (vrsConnection *VRSConnection) RegisterForPortUpdates(brport string, pnc chan *PortIPv4Info) error {
 	vrsConnection.registrationChannel <- &Registration{Brport: brport, Channel: pnc, Register: true}
 	return nil
 }
 
+// DeregisterForPortUpdates will help de-register for VRS port table updates
 func (vrsConnection *VRSConnection) DeregisterForPortUpdates(brport string) error {
 	vrsConnection.registrationChannel <- &Registration{Brport: brport, Channel: nil, Register: false}
 	return nil
@@ -198,17 +196,14 @@ func (vrsConnection VRSConnection) handlePortRegistration(registration *Registra
 	if register {
 		if _, ok := vrsConnection.pncTable[brport]; ok {
 			return fmt.Errorf("Already registered for this bridge port %s", brport)
-		} else {
-			vrsConnection.pncTable[brport] = pnc
-			if portInfo, exists := vrsConnection.pnpTable[brport]; exists {
-				select {
-				case pnc <- &portInfo:
-					fmt.Println("Pushed portInfo on channel")
-				default:
-					fmt.Println("No available receiver, skipping sending portInfo")
-				}
-				delete(vrsConnection.pnpTable, brport)
+		}
+		vrsConnection.pncTable[brport] = pnc
+		if portInfo, exists := vrsConnection.pnpTable[brport]; exists {
+			select {
+			case pnc <- &portInfo:
+			default:
 			}
+			delete(vrsConnection.pnpTable, brport)
 		}
 	} else {
 		delete(vrsConnection.pncTable, brport)
@@ -242,6 +237,15 @@ func (vrsConnection VRSConnection) getPortInfo(row *libovsdb.Row) (*PortIPv4Info
 			return nil, errors.New("Invalid or empty gateway")
 		}
 	}
+	if _, ok := row.Fields["mac"]; ok {
+		mac := row.Fields["mac"].(string)
+		if mac != "" {
+			portIPv4Info.MAC = mac
+		} else {
+			return nil, errors.New("Invalid or empty port MAC address")
+		}
+	}
+
 	return &portIPv4Info, nil
 }
 
@@ -258,9 +262,7 @@ func (vrsConnection VRSConnection) processUpdates(updates *libovsdb.TableUpdates
 						if pncChannel, exists := vrsConnection.pncTable[portName]; exists {
 							select {
 							case pncChannel <- portInfo:
-								fmt.Println("Pushed portInfo on channel")
 							default:
-								fmt.Println("No available receiver, skipping sending portInfo")
 							}
 						} else {
 							vrsConnection.pnpTable[portName] = *portInfo
@@ -271,12 +273,9 @@ func (vrsConnection VRSConnection) processUpdates(updates *libovsdb.TableUpdates
 				if _, ok := (row.Old).Fields["name"]; ok {
 					portName := (row.Old).Fields["name"].(string)
 					if pncChannel, exists := vrsConnection.pncTable[portName]; exists {
-						fmt.Println("Got a delete row from ovsdb: ", portName)
 						select {
 						case pncChannel <- &PortIPv4Info{Registered: false}:
-							fmt.Println("Posted unregister on the channel so that caller can close the channel")
 						default:
-							fmt.Println("No available receiver, skipping sending de-register")
 						}
 						delete(vrsConnection.pncTable, portName)
 					}
@@ -285,5 +284,120 @@ func (vrsConnection VRSConnection) processUpdates(updates *libovsdb.TableUpdates
 			}
 		}
 	}
+	return nil
+}
+
+// AddPortToAlubr0 adds Nuage port to alubr0 bridge
+func (vrsConnection *VRSConnection) AddPortToAlubr0(intfName string, entityInfo EntityInfo) error {
+
+	namedPortUUID := "port"
+	namedIntfUUID := "intf"
+	var err error
+
+	// 1) Insert a row for Nuage port in OVSDB Interface table
+	extIDMap := make(map[string]string)
+	intfOp := libovsdb.Operation{}
+	intf := make(map[string]interface{})
+	intf["name"] = intfName
+	extIDMap["vm-name"] = entityInfo.Name
+	extIDMap["vm-uuid"] = entityInfo.UUID
+	intf["external_ids"], err = libovsdb.NewOvsMap(extIDMap)
+	if err != nil {
+		return err
+	}
+	// interface table ops
+	intfOp = libovsdb.Operation{
+		Op:       "insert",
+		Table:    interfaceTable,
+		Row:      intf,
+		UUIDName: namedIntfUUID,
+	}
+
+	// 2) Insert a row for Nuage port in OVSDB Port table
+	portOp := libovsdb.Operation{}
+	port := make(map[string]interface{})
+	port["name"] = intfName
+	port["interfaces"] = libovsdb.UUID{namedIntfUUID}
+	port["external_ids"], err = libovsdb.NewOvsMap(extIDMap)
+	if err != nil {
+		return err
+	}
+	portOp = libovsdb.Operation{
+		Op:       "insert",
+		Table:    portTable,
+		Row:      port,
+		UUIDName: namedPortUUID,
+	}
+
+	// 3) Mutate the Ports column of the row in the Bridge table with new Nuage port
+	mutateUUID := []libovsdb.UUID{libovsdb.UUID{namedPortUUID}}
+	mutateSet, _ := libovsdb.NewOvsSet(mutateUUID)
+	mutation := libovsdb.NewMutation("ports", "insert", mutateSet)
+	condition := libovsdb.NewCondition("name", "==", bridgeName)
+	mutateOp := libovsdb.Operation{
+		Op:        "mutate",
+		Table:     bridgeTable,
+		Mutations: []interface{}{mutation},
+		Where:     []interface{}{condition},
+	}
+
+	operations := []libovsdb.Operation{intfOp, portOp, mutateOp}
+	reply, err := vrsConnection.ovsdbClient.Transact(OvsDBName, operations...)
+	if err != nil || len(reply) < len(operations) {
+		return fmt.Errorf("Problem mutating row in the OVSDB Bridge table for alubr0")
+	}
+
+	return nil
+}
+
+// RemovePortFromAlubr0 will remove a port from alubr0 bridge
+func (vrsConnection *VRSConnection) RemovePortFromAlubr0(portName string) error {
+
+	condition := libovsdb.NewCondition("name", "==", portName)
+	selectOp := libovsdb.Operation{
+		Op:    "select",
+		Table: "Port",
+		Where: []interface{}{condition},
+	}
+
+	selectOperation := []libovsdb.Operation{selectOp}
+	reply, err := vrsConnection.ovsdbClient.Transact(OvsDBName, selectOperation...)
+	if err != nil || len(reply) != 1 || len(reply[0].Rows) != 1 {
+		return fmt.Errorf("Problem selecting row in the OVSDB Port table for alubr0")
+	}
+
+	// Obtain Port table OVSDB row corresponding to the port name
+	ovsdbRow := reply[0].Rows[0]
+	portUUID := ovsdbRow["_uuid"]
+	portUUIDStr := fmt.Sprintf("%v", portUUID)
+	portUUIDNew := util.SplitUUIDString(portUUIDStr)
+
+	condition = libovsdb.NewCondition("name", "==", portName)
+	deleteOp := libovsdb.Operation{
+		Op:    "delete",
+		Table: "Port",
+		Where: []interface{}{condition},
+	}
+
+	// Deleting a Bridge row in Bridge table requires mutating the open_vswitch table.
+	mutateUUID := []libovsdb.UUID{libovsdb.UUID{portUUIDNew}}
+	mutateSet, _ := libovsdb.NewOvsSet(mutateUUID)
+	mutation := libovsdb.NewMutation("ports", "delete", mutateSet)
+	condition = libovsdb.NewCondition("name", "==", bridgeName)
+
+	// simple mutate operation
+	mutateOp := libovsdb.Operation{
+		Op:        "mutate",
+		Table:     "Bridge",
+		Mutations: []interface{}{mutation},
+		Where:     []interface{}{condition},
+	}
+
+	operations := []libovsdb.Operation{deleteOp, mutateOp}
+	reply, err = vrsConnection.ovsdbClient.Transact(OvsDBName, operations...)
+	if err != nil || len(reply) < len(operations) {
+		return fmt.Errorf("Problem mutating row in the OVSDB Bridge table for alubr0")
+	}
+
 	return nil
 }

@@ -20,7 +20,7 @@ package config
 import (
 	"crypto/md5"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"

@@ -2,17 +2,14 @@ package ipam
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"net"
-	"strconv"
 	"testing"
 	"time"
 
 	"github.com/docker/libkv/store"
-	"github.com/docker/libkv/store/boltdb"
 	"github.com/docker/libnetwork/bitseq"
 	"github.com/docker/libnetwork/datastore"
 	"github.com/docker/libnetwork/ipamapi"
@@ -24,10 +21,6 @@ import (
 const (
 	defaultPrefix = "/tmp/libnetwork/test/ipam"
 )
-
-func init() {
-	boltdb.Register()
-}
 
 // OptionBoltdbWithRandomDBFile function returns a random dir for local store backend
 func randomLocalStore() (datastore.DataStore, error) {
@@ -51,7 +44,6 @@ func randomLocalStore() (datastore.DataStore, error) {
 }
 
 func getAllocator() (*Allocator, error) {
-	ipamutils.InitNetworks()
 	ds, err := randomLocalStore()
 	if err != nil {
 		return nil, err
@@ -84,7 +76,7 @@ func TestGetAddressVersion(t *testing.T) {
 	if v6 != getAddressVersion(net.ParseIP("ff01::1")) {
 		t.Fatalf("Failed to detect IPv6 version")
 	}
-	if v6 != getAddressVersion(net.ParseIP("2001:db8::76:51")) {
+	if v6 != getAddressVersion(net.ParseIP("2001:56::76:51")) {
 		t.Fatalf("Failed to detect IPv6 version")
 	}
 }
@@ -458,9 +450,25 @@ func TestPredefinedPool(t *testing.T) {
 		t.Fatalf("Expected failure for non default addr space")
 	}
 
-	pid, nw, _, err := a.RequestPool(localAddressSpace, "", "", nil, false)
+	exp, err := ipamutils.FindAvailableNetwork(a.predefined[localAddressSpace])
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	nw, err := a.getPredefinedPool(localAddressSpace, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !types.CompareIPNet(nw, exp) {
+		t.Fatalf("Unexpected default network returned: %s. Expected: %s", nw, exp)
+	}
+
+	pid, nw, _, err := a.RequestPool(localAddressSpace, exp.String(), "", nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !types.CompareIPNet(nw, exp) {
+		t.Fatalf("Unexpected default network returned: %s. Expected: %s", nw, exp)
 	}
 
 	nw2, err := a.getPredefinedPool(localAddressSpace, false)
@@ -473,6 +481,14 @@ func TestPredefinedPool(t *testing.T) {
 
 	if err := a.ReleasePool(pid); err != nil {
 		t.Fatal(err)
+	}
+
+	nw, err = a.getPredefinedPool(localAddressSpace, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !types.CompareIPNet(nw, exp) {
+		t.Fatalf("Unexpected default network returned: %s. Expected %s", nw, exp)
 	}
 }
 
@@ -497,11 +513,11 @@ func TestRemoveSubnet(t *testing.T) {
 		{localAddressSpace, "192.168.0.0/16", false},
 		{localAddressSpace, "172.17.0.0/16", false},
 		{localAddressSpace, "10.0.0.0/8", false},
-		{localAddressSpace, "2001:db8:1:2:3:4:ffff::/112", false},
+		{localAddressSpace, "2002:1:2:3:4:5:ffff::/112", false},
 		{"splane", "172.17.0.0/16", false},
 		{"splane", "10.0.0.0/8", false},
-		{"splane", "2001:db8:1:2:3:4:5::/112", true},
-		{"splane", "2001:db8:1:2:3:4:ffff::/112", true},
+		{"splane", "2002:1:2:3:4:5:6::/112", true},
+		{"splane", "2002:1:2:3:4:5:ffff::/112", true},
 	}
 
 	poolIDs := make([]string, len(input))
@@ -755,7 +771,7 @@ func TestRequestSyntaxCheck(t *testing.T) {
 	ip := net.ParseIP("172.17.0.23")
 	_, _, err = a.RequestAddress(pid, ip, nil)
 	if err == nil {
-		t.Fatalf("Failed to detect wrong request: requested IP from different subnet")
+		t.Fatalf("Failed to detect wrong request: preferred IP from different subnet")
 	}
 
 	ip = net.ParseIP("192.168.0.50")
@@ -1151,100 +1167,4 @@ func checkDBEquality(a1, a2 *Allocator, t *testing.T) {
 			t.Fatalf("%s\n%s", bm1, bm2)
 		}
 	}
-}
-
-const (
-	numInstances = 5
-	first        = 0
-	last         = numInstances - 1
-)
-
-var (
-	allocator *Allocator
-	start     = make(chan struct{})
-	done      = make(chan chan struct{}, numInstances-1)
-	pools     = make([]*net.IPNet, numInstances)
-)
-
-func runParallelTests(t *testing.T, instance int) {
-	var err error
-
-	t.Parallel()
-
-	pTest := flag.Lookup("test.parallel")
-	if pTest == nil {
-		t.Skip("Skipped because test.parallel flag not set;")
-	}
-	numParallel, err := strconv.Atoi(pTest.Value.String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if numParallel < numInstances {
-		t.Skip("Skipped because t.parallel was less than ", numInstances)
-	}
-
-	// The first instance creates the allocator, gives the start
-	// and finally checks the pools each instance was assigned
-	if instance == first {
-		allocator, err = getAllocator()
-		if err != nil {
-			t.Fatal(err)
-		}
-		close(start)
-	}
-
-	if instance != first {
-		select {
-		case <-start:
-		}
-
-		instDone := make(chan struct{})
-		done <- instDone
-		defer close(instDone)
-
-		if instance == last {
-			defer close(done)
-		}
-	}
-
-	_, pools[instance], _, err = allocator.RequestPool(localAddressSpace, "", "", nil, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if instance == first {
-		for instDone := range done {
-			select {
-			case <-instDone:
-			}
-		}
-		// Now check each instance got a different pool
-		for i := 0; i < numInstances; i++ {
-			for j := i + 1; j < numInstances; j++ {
-				if types.CompareIPNet(pools[i], pools[j]) {
-					t.Fatalf("Instance %d and %d were given the same predefined pool: %v", i, j, pools)
-				}
-			}
-		}
-	}
-}
-
-func TestParallelPredefinedRequest1(t *testing.T) {
-	runParallelTests(t, 0)
-}
-
-func TestParallelPredefinedRequest2(t *testing.T) {
-	runParallelTests(t, 1)
-}
-
-func TestParallelPredefinedRequest3(t *testing.T) {
-	runParallelTests(t, 2)
-}
-
-func TestParallelPredefinedRequest4(t *testing.T) {
-	runParallelTests(t, 3)
-}
-
-func TestParallelPredefinedRequest5(t *testing.T) {
-	runParallelTests(t, 4)
 }

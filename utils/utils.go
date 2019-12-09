@@ -22,8 +22,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
-	"github.com/docker/docker/pkg/random"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"net"
 	"strconv"
@@ -88,13 +87,9 @@ func IPIncrement(originalIP net.IP) (resultIP net.IP, err error) {
 }
 
 //GenerateID copied from docker. generates a unique hash string
-func GenerateID(crypto bool) string {
-
+func GenerateID() string {
 	b := make([]byte, 32)
-	r := random.Reader
-	if crypto {
-		r = rand.Reader
-	}
+	r := rand.Reader
 	for {
 		if _, err := io.ReadFull(r, b); err != nil {
 			panic(err) // This shouldn't happen

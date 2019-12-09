@@ -38,10 +38,19 @@ var DomainIdentity = bambou.Identity{
 // DomainsList represents a list of Domains
 type DomainsList []*Domain
 
-// DomainsAncestor is the interface of an ancestor of a Domain must implement.
+// DomainsAncestor is the interface that an ancestor of a Domain must implement.
+// An Ancestor is defined as an entity that has Domain as a descendant.
+// An Ancestor can get a list of its child Domains, but not necessarily create one.
 type DomainsAncestor interface {
 	Domains(*bambou.FetchingInfo) (DomainsList, *bambou.Error)
-	CreateDomains(*Domain) *bambou.Error
+}
+
+// DomainsParent is the interface that a parent of a Domain must implement.
+// A Parent is defined as an entity that has Domain as a child.
+// A Parent is an Ancestor which can create a Domain.
+type DomainsParent interface {
+	DomainsAncestor
+	CreateDomain(*Domain) *bambou.Error
 }
 
 // Domain represents the model of a domain
@@ -55,6 +64,7 @@ type Domain struct {
 	BGPEnabled                      bool          `json:"BGPEnabled"`
 	DHCPBehavior                    string        `json:"DHCPBehavior,omitempty"`
 	DHCPServerAddress               string        `json:"DHCPServerAddress,omitempty"`
+	FIPUnderlay                     bool          `json:"FIPUnderlay"`
 	DPI                             string        `json:"DPI,omitempty"`
 	LabelID                         int           `json:"labelID,omitempty"`
 	BackHaulRouteDistinguisher      string        `json:"backHaulRouteDistinguisher,omitempty"`
@@ -65,6 +75,7 @@ type Domain struct {
 	MaintenanceMode                 string        `json:"maintenanceMode,omitempty"`
 	Name                            string        `json:"name,omitempty"`
 	LastUpdatedBy                   string        `json:"lastUpdatedBy,omitempty"`
+	AdvertiseCriteria               string        `json:"advertiseCriteria,omitempty"`
 	LeakingEnabled                  bool          `json:"leakingEnabled"`
 	SecondaryDHCPServerAddress      string        `json:"secondaryDHCPServerAddress,omitempty"`
 	TemplateID                      string        `json:"templateID,omitempty"`
@@ -77,15 +88,17 @@ type Domain struct {
 	Encryption                      string        `json:"encryption,omitempty"`
 	UnderlayEnabled                 string        `json:"underlayEnabled,omitempty"`
 	EntityScope                     string        `json:"entityScope,omitempty"`
+	LocalAS                         int           `json:"localAS,omitempty"`
 	PolicyChangeStatus              string        `json:"policyChangeStatus,omitempty"`
 	DomainID                        int           `json:"domainID,omitempty"`
+	DomainVLANID                    int           `json:"domainVLANID,omitempty"`
 	RouteDistinguisher              string        `json:"routeDistinguisher,omitempty"`
 	RouteTarget                     string        `json:"routeTarget,omitempty"`
 	UplinkPreference                string        `json:"uplinkPreference,omitempty"`
-	ApplicationDeploymentPolicy     string        `json:"applicationDeploymentPolicy,omitempty"`
 	AssociatedBGPProfileID          string        `json:"associatedBGPProfileID,omitempty"`
 	AssociatedMulticastChannelMapID string        `json:"associatedMulticastChannelMapID,omitempty"`
 	AssociatedPATMapperID           string        `json:"associatedPATMapperID,omitempty"`
+	AssociatedSharedPATMapperID     string        `json:"associatedSharedPATMapperID,omitempty"`
 	Stretched                       bool          `json:"stretched"`
 	Multicast                       string        `json:"multicast,omitempty"`
 	TunnelType                      string        `json:"tunnelType,omitempty"`
@@ -98,11 +111,12 @@ type Domain struct {
 func NewDomain() *Domain {
 
 	return &Domain{
-		PATEnabled:                  "INHERITED",
-		DHCPBehavior:                "CONSUME",
-		TunnelType:                  "DC_DEFAULT",
-		ApplicationDeploymentPolicy: "ZONE",
-		MaintenanceMode:             "DISABLED",
+		PATEnabled:      "INHERITED",
+		DHCPBehavior:    "CONSUME",
+		FIPUnderlay:     false,
+		DPI:             "DISABLED",
+		MaintenanceMode: "DISABLED",
+		TunnelType:      "DC_DEFAULT",
 	}
 }
 
@@ -198,18 +212,40 @@ func (o *Domain) CreateMetadata(child *Metadata) *bambou.Error {
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
+// NetworkPerformanceBindings retrieves the list of child NetworkPerformanceBindings of the Domain
+func (o *Domain) NetworkPerformanceBindings(info *bambou.FetchingInfo) (NetworkPerformanceBindingsList, *bambou.Error) {
+
+	var list NetworkPerformanceBindingsList
+	err := bambou.CurrentSession().FetchChildren(o, NetworkPerformanceBindingIdentity, &list, info)
+	return list, err
+}
+
+// CreateNetworkPerformanceBinding creates a new child NetworkPerformanceBinding under the Domain
+func (o *Domain) CreateNetworkPerformanceBinding(child *NetworkPerformanceBinding) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// PGExpressions retrieves the list of child PGExpressions of the Domain
+func (o *Domain) PGExpressions(info *bambou.FetchingInfo) (PGExpressionsList, *bambou.Error) {
+
+	var list PGExpressionsList
+	err := bambou.CurrentSession().FetchChildren(o, PGExpressionIdentity, &list, info)
+	return list, err
+}
+
+// CreatePGExpression creates a new child PGExpression under the Domain
+func (o *Domain) CreatePGExpression(child *PGExpression) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
 // EgressACLEntryTemplates retrieves the list of child EgressACLEntryTemplates of the Domain
 func (o *Domain) EgressACLEntryTemplates(info *bambou.FetchingInfo) (EgressACLEntryTemplatesList, *bambou.Error) {
 
 	var list EgressACLEntryTemplatesList
 	err := bambou.CurrentSession().FetchChildren(o, EgressACLEntryTemplateIdentity, &list, info)
 	return list, err
-}
-
-// CreateEgressACLEntryTemplate creates a new child EgressACLEntryTemplate under the Domain
-func (o *Domain) CreateEgressACLEntryTemplate(child *EgressACLEntryTemplate) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // EgressACLTemplates retrieves the list of child EgressACLTemplates of the Domain
@@ -222,6 +258,20 @@ func (o *Domain) EgressACLTemplates(info *bambou.FetchingInfo) (EgressACLTemplat
 
 // CreateEgressACLTemplate creates a new child EgressACLTemplate under the Domain
 func (o *Domain) CreateEgressACLTemplate(child *EgressACLTemplate) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// EgressAdvFwdTemplates retrieves the list of child EgressAdvFwdTemplates of the Domain
+func (o *Domain) EgressAdvFwdTemplates(info *bambou.FetchingInfo) (EgressAdvFwdTemplatesList, *bambou.Error) {
+
+	var list EgressAdvFwdTemplatesList
+	err := bambou.CurrentSession().FetchChildren(o, EgressAdvFwdTemplateIdentity, &list, info)
+	return list, err
+}
+
+// CreateEgressAdvFwdTemplate creates a new child EgressAdvFwdTemplate under the Domain
+func (o *Domain) CreateEgressAdvFwdTemplate(child *EgressAdvFwdTemplate) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }
@@ -290,12 +340,6 @@ func (o *Domain) FirewallAcls(info *bambou.FetchingInfo) (FirewallAclsList, *bam
 	return list, err
 }
 
-// CreateFirewallAcl creates a new child FirewallAcl under the Domain
-func (o *Domain) CreateFirewallAcl(child *FirewallAcl) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // FloatingIps retrieves the list of child FloatingIps of the Domain
 func (o *Domain) FloatingIps(info *bambou.FetchingInfo) (FloatingIpsList, *bambou.Error) {
 
@@ -332,12 +376,6 @@ func (o *Domain) VMs(info *bambou.FetchingInfo) (VMsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateVM creates a new child VM under the Domain
-func (o *Domain) CreateVM(child *VM) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // VMInterfaces retrieves the list of child VMInterfaces of the Domain
 func (o *Domain) VMInterfaces(info *bambou.FetchingInfo) (VMInterfacesList, *bambou.Error) {
 
@@ -346,8 +384,16 @@ func (o *Domain) VMInterfaces(info *bambou.FetchingInfo) (VMInterfacesList, *bam
 	return list, err
 }
 
-// CreateVMInterface creates a new child VMInterface under the Domain
-func (o *Domain) CreateVMInterface(child *VMInterface) *bambou.Error {
+// VNFDomainMappings retrieves the list of child VNFDomainMappings of the Domain
+func (o *Domain) VNFDomainMappings(info *bambou.FetchingInfo) (VNFDomainMappingsList, *bambou.Error) {
+
+	var list VNFDomainMappingsList
+	err := bambou.CurrentSession().FetchChildren(o, VNFDomainMappingIdentity, &list, info)
+	return list, err
+}
+
+// CreateVNFDomainMapping creates a new child VNFDomainMapping under the Domain
+func (o *Domain) CreateVNFDomainMapping(child *VNFDomainMapping) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }
@@ -358,12 +404,6 @@ func (o *Domain) IngressACLEntryTemplates(info *bambou.FetchingInfo) (IngressACL
 	var list IngressACLEntryTemplatesList
 	err := bambou.CurrentSession().FetchChildren(o, IngressACLEntryTemplateIdentity, &list, info)
 	return list, err
-}
-
-// CreateIngressACLEntryTemplate creates a new child IngressACLEntryTemplate under the Domain
-func (o *Domain) CreateIngressACLEntryTemplate(child *IngressACLEntryTemplate) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // IngressACLTemplates retrieves the list of child IngressACLTemplates of the Domain
@@ -406,14 +446,6 @@ func (o *Domain) IngressExternalServiceTemplates(info *bambou.FetchingInfo) (Ing
 func (o *Domain) CreateIngressExternalServiceTemplate(child *IngressExternalServiceTemplate) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
-}
-
-// Jobs retrieves the list of child Jobs of the Domain
-func (o *Domain) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
-
-	var list JobsList
-	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
-	return list, err
 }
 
 // CreateJob creates a new child Job under the Domain
@@ -463,12 +495,6 @@ func (o *Domain) DomainTemplates(info *bambou.FetchingInfo) (DomainTemplatesList
 	return list, err
 }
 
-// CreateDomainTemplate creates a new child DomainTemplate under the Domain
-func (o *Domain) CreateDomainTemplate(child *DomainTemplate) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // Zones retrieves the list of child Zones of the Domain
 func (o *Domain) Zones(info *bambou.FetchingInfo) (ZonesList, *bambou.Error) {
 
@@ -491,24 +517,12 @@ func (o *Domain) Containers(info *bambou.FetchingInfo) (ContainersList, *bambou.
 	return list, err
 }
 
-// CreateContainer creates a new child Container under the Domain
-func (o *Domain) CreateContainer(child *Container) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // ContainerInterfaces retrieves the list of child ContainerInterfaces of the Domain
 func (o *Domain) ContainerInterfaces(info *bambou.FetchingInfo) (ContainerInterfacesList, *bambou.Error) {
 
 	var list ContainerInterfacesList
 	err := bambou.CurrentSession().FetchChildren(o, ContainerInterfaceIdentity, &list, info)
 	return list, err
-}
-
-// CreateContainerInterface creates a new child ContainerInterface under the Domain
-func (o *Domain) CreateContainerInterface(child *ContainerInterface) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // QOSs retrieves the list of child QOSs of the Domain
@@ -533,12 +547,6 @@ func (o *Domain) HostInterfaces(info *bambou.FetchingInfo) (HostInterfacesList, 
 	return list, err
 }
 
-// CreateHostInterface creates a new child HostInterface under the Domain
-func (o *Domain) CreateHostInterface(child *HostInterface) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // RoutingPolicies retrieves the list of child RoutingPolicies of the Domain
 func (o *Domain) RoutingPolicies(info *bambou.FetchingInfo) (RoutingPoliciesList, *bambou.Error) {
 
@@ -553,18 +561,26 @@ func (o *Domain) CreateRoutingPolicy(child *RoutingPolicy) *bambou.Error {
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
+// SPATSourcesPools retrieves the list of child SPATSourcesPools of the Domain
+func (o *Domain) SPATSourcesPools(info *bambou.FetchingInfo) (SPATSourcesPoolsList, *bambou.Error) {
+
+	var list SPATSourcesPoolsList
+	err := bambou.CurrentSession().FetchChildren(o, SPATSourcesPoolIdentity, &list, info)
+	return list, err
+}
+
+// CreateSPATSourcesPool creates a new child SPATSourcesPool under the Domain
+func (o *Domain) CreateSPATSourcesPool(child *SPATSourcesPool) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
 // UplinkRDs retrieves the list of child UplinkRDs of the Domain
 func (o *Domain) UplinkRDs(info *bambou.FetchingInfo) (UplinkRDsList, *bambou.Error) {
 
 	var list UplinkRDsList
 	err := bambou.CurrentSession().FetchChildren(o, UplinkRDIdentity, &list, info)
 	return list, err
-}
-
-// CreateUplinkRD creates a new child UplinkRD under the Domain
-func (o *Domain) CreateUplinkRD(child *UplinkRD) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // VPNConnections retrieves the list of child VPNConnections of the Domain
@@ -589,12 +605,6 @@ func (o *Domain) VPorts(info *bambou.FetchingInfo) (VPortsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateVPort creates a new child VPort under the Domain
-func (o *Domain) CreateVPort(child *VPort) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // Applicationperformancemanagementbindings retrieves the list of child Applicationperformancemanagementbindings of the Domain
 func (o *Domain) Applicationperformancemanagementbindings(info *bambou.FetchingInfo) (ApplicationperformancemanagementbindingsList, *bambou.Error) {
 
@@ -617,24 +627,12 @@ func (o *Domain) BridgeInterfaces(info *bambou.FetchingInfo) (BridgeInterfacesLi
 	return list, err
 }
 
-// CreateBridgeInterface creates a new child BridgeInterface under the Domain
-func (o *Domain) CreateBridgeInterface(child *BridgeInterface) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // Groups retrieves the list of child Groups of the Domain
 func (o *Domain) Groups(info *bambou.FetchingInfo) (GroupsList, *bambou.Error) {
 
 	var list GroupsList
 	err := bambou.CurrentSession().FetchChildren(o, GroupIdentity, &list, info)
 	return list, err
-}
-
-// CreateGroup creates a new child Group under the Domain
-func (o *Domain) CreateGroup(child *Group) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // StaticRoutes retrieves the list of child StaticRoutes of the Domain
@@ -659,12 +657,6 @@ func (o *Domain) Statistics(info *bambou.FetchingInfo) (StatisticsList, *bambou.
 	return list, err
 }
 
-// CreateStatistics creates a new child Statistics under the Domain
-func (o *Domain) CreateStatistics(child *Statistics) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // StatisticsPolicies retrieves the list of child StatisticsPolicies of the Domain
 func (o *Domain) StatisticsPolicies(info *bambou.FetchingInfo) (StatisticsPoliciesList, *bambou.Error) {
 
@@ -687,36 +679,10 @@ func (o *Domain) Subnets(info *bambou.FetchingInfo) (SubnetsList, *bambou.Error)
 	return list, err
 }
 
-// CreateSubnet creates a new child Subnet under the Domain
-func (o *Domain) CreateSubnet(child *Subnet) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // EventLogs retrieves the list of child EventLogs of the Domain
 func (o *Domain) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error) {
 
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the Domain
-func (o *Domain) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
-// ExternalAppServices retrieves the list of child ExternalAppServices of the Domain
-func (o *Domain) ExternalAppServices(info *bambou.FetchingInfo) (ExternalAppServicesList, *bambou.Error) {
-
-	var list ExternalAppServicesList
-	err := bambou.CurrentSession().FetchChildren(o, ExternalAppServiceIdentity, &list, info)
-	return list, err
-}
-
-// CreateExternalAppService creates a new child ExternalAppService under the Domain
-func (o *Domain) CreateExternalAppService(child *ExternalAppService) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

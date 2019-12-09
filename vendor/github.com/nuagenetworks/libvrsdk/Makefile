@@ -14,4 +14,5 @@ lint:
 	cd api; go install; cd ..
 	cd ovsdb; go install; cd ..
 	go install
-	gometalinter --disable=dupl --disable=gocyclo --deadline 300s ./... 	
+	gometalinter --disable=dupl --disable=gocyclo --deadline 300s ovsdb
+	gometalinter --disable=dupl --disable=gocyclo --deadline 300s api
