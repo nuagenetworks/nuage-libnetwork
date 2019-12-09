@@ -30,6 +30,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -212,6 +213,7 @@ func (s *Session) send(request *http.Request, info *FetchingInfo) (*http.Respons
 
 	log.Debugf("Request Method URL: %s %s", request.Method, request.URL)
 	log.Debugf("Request Headers: %s", request.Header)
+	log.Debugf("Request Body: %s", request.Body)
 
 	response, err := s.client.Do(request)
 
@@ -231,7 +233,7 @@ func (s *Session) send(request *http.Request, info *FetchingInfo) (*http.Respons
 	case http.StatusMultipleChoices:
 		defer response.Body.Close()
 		newURL := request.URL.String() + "?responseChoice=1"
-		request, _ = http.NewRequest(request.Method, newURL, request.Body)
+		request.URL, _ = url.Parse(newURL)
 		return s.send(request, info)
 
 	case http.StatusConflict, http.StatusNotFound:

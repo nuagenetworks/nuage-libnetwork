@@ -65,13 +65,16 @@ type NSGUpgradeProfile struct {
 	MetadataUpgradePath string `json:"metadataUpgradePath,omitempty"`
 	EnterpriseID        string `json:"enterpriseID,omitempty"`
 	EntityScope         string `json:"entityScope,omitempty"`
+	DownloadRateLimit   int    `json:"downloadRateLimit,omitempty"`
 	ExternalID          string `json:"externalID,omitempty"`
 }
 
 // NewNSGUpgradeProfile returns a new *NSGUpgradeProfile
 func NewNSGUpgradeProfile() *NSGUpgradeProfile {
 
-	return &NSGUpgradeProfile{}
+	return &NSGUpgradeProfile{
+		DownloadRateLimit: 10000,
+	}
 }
 
 // Identity returns the Identity of the object.

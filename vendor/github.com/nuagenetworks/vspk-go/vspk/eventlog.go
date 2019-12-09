@@ -61,6 +61,7 @@ type EventLog struct {
 	Owner             string        `json:"owner,omitempty"`
 	RequestID         string        `json:"requestID,omitempty"`
 	Diff              interface{}   `json:"diff,omitempty"`
+	EmbeddedMetadata  []interface{} `json:"embeddedMetadata,omitempty"`
 	Enterprise        string        `json:"enterprise,omitempty"`
 	Entities          []interface{} `json:"entities,omitempty"`
 	EntityID          string        `json:"entityID,omitempty"`

@@ -55,27 +55,37 @@ type WirelessPortsParent interface {
 
 // WirelessPort represents the model of a wirelessport
 type WirelessPort struct {
-	ID                string `json:"ID,omitempty"`
-	ParentID          string `json:"parentID,omitempty"`
-	ParentType        string `json:"parentType,omitempty"`
-	Owner             string `json:"owner,omitempty"`
-	Name              string `json:"name,omitempty"`
-	TemplateID        string `json:"templateID,omitempty"`
-	GenericConfig     string `json:"genericConfig,omitempty"`
-	Description       string `json:"description,omitempty"`
-	PhysicalName      string `json:"physicalName,omitempty"`
-	WifiFrequencyBand string `json:"wifiFrequencyBand,omitempty"`
-	WifiMode          string `json:"wifiMode,omitempty"`
-	PortType          string `json:"portType,omitempty"`
-	CountryCode       string `json:"countryCode,omitempty"`
-	FrequencyChannel  string `json:"frequencyChannel,omitempty"`
+	ID                          string        `json:"ID,omitempty"`
+	ParentID                    string        `json:"parentID,omitempty"`
+	ParentType                  string        `json:"parentType,omitempty"`
+	Owner                       string        `json:"owner,omitempty"`
+	VLANRange                   string        `json:"VLANRange,omitempty"`
+	Name                        string        `json:"name,omitempty"`
+	LastUpdatedBy               string        `json:"lastUpdatedBy,omitempty"`
+	GenericConfig               string        `json:"genericConfig,omitempty"`
+	PermittedAction             string        `json:"permittedAction,omitempty"`
+	Description                 string        `json:"description,omitempty"`
+	ChannelWidth                string        `json:"channelWidth,omitempty"`
+	PhysicalName                string        `json:"physicalName,omitempty"`
+	WifiFrequencyBand           string        `json:"wifiFrequencyBand,omitempty"`
+	WifiMode                    string        `json:"wifiMode,omitempty"`
+	EmbeddedMetadata            []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope                 string        `json:"entityScope,omitempty"`
+	PortType                    string        `json:"portType,omitempty"`
+	CountryCode                 string        `json:"countryCode,omitempty"`
+	FrequencyChannel            string        `json:"frequencyChannel,omitempty"`
+	UseUserMnemonic             bool          `json:"useUserMnemonic"`
+	UserMnemonic                string        `json:"userMnemonic,omitempty"`
+	AssociatedEgressQOSPolicyID string        `json:"associatedEgressQOSPolicyID,omitempty"`
+	Status                      string        `json:"status,omitempty"`
+	ExternalID                  string        `json:"externalID,omitempty"`
 }
 
 // NewWirelessPort returns a new *WirelessPort
 func NewWirelessPort() *WirelessPort {
 
 	return &WirelessPort{
-		GenericConfig:     "4096",
+		ChannelWidth:      "WIDTH_20_MHZ",
 		WifiFrequencyBand: "FREQ_2_4_GHZ",
 		WifiMode:          "WIFI_B_G_N",
 		PortType:          "ACCESS",
@@ -119,12 +129,40 @@ func (o *WirelessPort) Delete() *bambou.Error {
 	return bambou.CurrentSession().DeleteEntity(o)
 }
 
+// Metadatas retrieves the list of child Metadatas of the WirelessPort
+func (o *WirelessPort) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *bambou.Error) {
+
+	var list MetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, MetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateMetadata creates a new child Metadata under the WirelessPort
+func (o *WirelessPort) CreateMetadata(child *Metadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
 // Alarms retrieves the list of child Alarms of the WirelessPort
 func (o *WirelessPort) Alarms(info *bambou.FetchingInfo) (AlarmsList, *bambou.Error) {
 
 	var list AlarmsList
 	err := bambou.CurrentSession().FetchChildren(o, AlarmIdentity, &list, info)
 	return list, err
+}
+
+// GlobalMetadatas retrieves the list of child GlobalMetadatas of the WirelessPort
+func (o *WirelessPort) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
+
+	var list GlobalMetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, GlobalMetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateGlobalMetadata creates a new child GlobalMetadata under the WirelessPort
+func (o *WirelessPort) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // SSIDConnections retrieves the list of child SSIDConnections of the WirelessPort
@@ -139,14 +177,6 @@ func (o *WirelessPort) SSIDConnections(info *bambou.FetchingInfo) (SSIDConnectio
 func (o *WirelessPort) CreateSSIDConnection(child *SSIDConnection) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
-}
-
-// Statistics retrieves the list of child Statistics of the WirelessPort
-func (o *WirelessPort) Statistics(info *bambou.FetchingInfo) (StatisticsList, *bambou.Error) {
-
-	var list StatisticsList
-	err := bambou.CurrentSession().FetchChildren(o, StatisticsIdentity, &list, info)
-	return list, err
 }
 
 // EventLogs retrieves the list of child EventLogs of the WirelessPort

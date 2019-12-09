@@ -55,13 +55,18 @@ type CTranslationMapsParent interface {
 
 // CTranslationMap represents the model of a ctranslationmap
 type CTranslationMap struct {
-	ID              string `json:"ID,omitempty"`
-	ParentID        string `json:"parentID,omitempty"`
-	ParentType      string `json:"parentType,omitempty"`
-	Owner           string `json:"owner,omitempty"`
-	MappingType     string `json:"mappingType,omitempty"`
-	CustomerAliasIP string `json:"customerAliasIP,omitempty"`
-	CustomerIP      string `json:"customerIP,omitempty"`
+	ID                 string        `json:"ID,omitempty"`
+	ParentID           string        `json:"parentID,omitempty"`
+	ParentType         string        `json:"parentType,omitempty"`
+	Owner              string        `json:"owner,omitempty"`
+	MappingType        string        `json:"mappingType,omitempty"`
+	LastUpdatedBy      string        `json:"lastUpdatedBy,omitempty"`
+	EmbeddedMetadata   []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope        string        `json:"entityScope,omitempty"`
+	AssociatedDomainID string        `json:"associatedDomainID,omitempty"`
+	CustomerAliasIP    string        `json:"customerAliasIP,omitempty"`
+	CustomerIP         string        `json:"customerIP,omitempty"`
+	ExternalID         string        `json:"externalID,omitempty"`
 }
 
 // NewCTranslationMap returns a new *CTranslationMap
@@ -104,4 +109,32 @@ func (o *CTranslationMap) Save() *bambou.Error {
 func (o *CTranslationMap) Delete() *bambou.Error {
 
 	return bambou.CurrentSession().DeleteEntity(o)
+}
+
+// Metadatas retrieves the list of child Metadatas of the CTranslationMap
+func (o *CTranslationMap) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *bambou.Error) {
+
+	var list MetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, MetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateMetadata creates a new child Metadata under the CTranslationMap
+func (o *CTranslationMap) CreateMetadata(child *Metadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// GlobalMetadatas retrieves the list of child GlobalMetadatas of the CTranslationMap
+func (o *CTranslationMap) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
+
+	var list GlobalMetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, GlobalMetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateGlobalMetadata creates a new child GlobalMetadata under the CTranslationMap
+func (o *CTranslationMap) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
 }

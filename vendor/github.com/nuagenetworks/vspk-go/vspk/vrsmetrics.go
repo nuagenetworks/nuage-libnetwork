@@ -71,6 +71,7 @@ type VRSMetrics struct {
 	EntityScope                   string  `json:"entityScope,omitempty"`
 	LogDiskPartitionUtilization   float64 `json:"logDiskPartitionUtilization,omitempty"`
 	RootDiskPartitionUtilization  float64 `json:"rootDiskPartitionUtilization,omitempty"`
+	AppliedMetricsPushInterval    int     `json:"appliedMetricsPushInterval,omitempty"`
 	AssociatedVCenterHypervisorID string  `json:"associatedVCenterHypervisorID,omitempty"`
 	CurrentVersion                string  `json:"currentVersion,omitempty"`
 	ExternalID                    string  `json:"externalID,omitempty"`
@@ -79,7 +80,9 @@ type VRSMetrics struct {
 // NewVRSMetrics returns a new *VRSMetrics
 func NewVRSMetrics() *VRSMetrics {
 
-	return &VRSMetrics{}
+	return &VRSMetrics{
+		AppliedMetricsPushInterval: 60,
+	}
 }
 
 // Identity returns the Identity of the object.

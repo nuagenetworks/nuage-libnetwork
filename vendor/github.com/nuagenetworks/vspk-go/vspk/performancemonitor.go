@@ -55,34 +55,33 @@ type PerformanceMonitorsParent interface {
 
 // PerformanceMonitor represents the model of a performancemonitor
 type PerformanceMonitor struct {
-	ID                    string        `json:"ID,omitempty"`
-	ParentID              string        `json:"parentID,omitempty"`
-	ParentType            string        `json:"parentType,omitempty"`
-	Owner                 string        `json:"owner,omitempty"`
-	Name                  string        `json:"name,omitempty"`
-	LastUpdatedBy         string        `json:"lastUpdatedBy,omitempty"`
-	PayloadSize           int           `json:"payloadSize,omitempty"`
-	ReadOnly              bool          `json:"readOnly"`
-	ServiceClass          string        `json:"serviceClass,omitempty"`
-	Description           string        `json:"description,omitempty"`
-	DestinationTargetList []interface{} `json:"destinationTargetList,omitempty"`
-	Timeout               int           `json:"timeout,omitempty"`
-	Interval              int           `json:"interval,omitempty"`
-	EntityScope           string        `json:"entityScope,omitempty"`
-	DownThresholdCount    int           `json:"downThresholdCount,omitempty"`
-	ProbeType             string        `json:"probeType,omitempty"`
-	NumberOfPackets       int           `json:"numberOfPackets,omitempty"`
-	ExternalID            string        `json:"externalID,omitempty"`
+	ID              string `json:"ID,omitempty"`
+	ParentID        string `json:"parentID,omitempty"`
+	ParentType      string `json:"parentType,omitempty"`
+	Owner           string `json:"owner,omitempty"`
+	Name            string `json:"name,omitempty"`
+	LastUpdatedBy   string `json:"lastUpdatedBy,omitempty"`
+	PayloadSize     int    `json:"payloadSize,omitempty"`
+	ReadOnly        bool   `json:"readOnly"`
+	ServiceClass    string `json:"serviceClass,omitempty"`
+	Description     string `json:"description,omitempty"`
+	Interval        int    `json:"interval,omitempty"`
+	EntityScope     string `json:"entityScope,omitempty"`
+	HoldDownTimer   int    `json:"holdDownTimer,omitempty"`
+	ProbeType       string `json:"probeType,omitempty"`
+	NumberOfPackets int    `json:"numberOfPackets,omitempty"`
+	ExternalID      string `json:"externalID,omitempty"`
 }
 
 // NewPerformanceMonitor returns a new *PerformanceMonitor
 func NewPerformanceMonitor() *PerformanceMonitor {
 
 	return &PerformanceMonitor{
-		PayloadSize:     108,
+		PayloadSize:     137,
 		ReadOnly:        false,
-		Timeout:         1000,
-		Interval:        3000,
+		ServiceClass:    "H",
+		Interval:        180,
+		HoldDownTimer:   1000,
 		ProbeType:       "ONEWAY",
 		NumberOfPackets: 1,
 	}
@@ -124,29 +123,18 @@ func (o *PerformanceMonitor) Delete() *bambou.Error {
 	return bambou.CurrentSession().DeleteEntity(o)
 }
 
+// Tiers retrieves the list of child Tiers of the PerformanceMonitor
+func (o *PerformanceMonitor) Tiers(info *bambou.FetchingInfo) (TiersList, *bambou.Error) {
+
+	var list TiersList
+	err := bambou.CurrentSession().FetchChildren(o, TierIdentity, &list, info)
+	return list, err
+}
+
 // Applicationperformancemanagements retrieves the list of child Applicationperformancemanagements of the PerformanceMonitor
 func (o *PerformanceMonitor) Applicationperformancemanagements(info *bambou.FetchingInfo) (ApplicationperformancemanagementsList, *bambou.Error) {
 
 	var list ApplicationperformancemanagementsList
 	err := bambou.CurrentSession().FetchChildren(o, ApplicationperformancemanagementIdentity, &list, info)
 	return list, err
-}
-
-// NSGateways retrieves the list of child NSGateways of the PerformanceMonitor
-func (o *PerformanceMonitor) NSGateways(info *bambou.FetchingInfo) (NSGatewaysList, *bambou.Error) {
-
-	var list NSGatewaysList
-	err := bambou.CurrentSession().FetchChildren(o, NSGatewayIdentity, &list, info)
-	return list, err
-}
-
-// AssignNSGateways assigns the list of NSGateways to the PerformanceMonitor
-func (o *PerformanceMonitor) AssignNSGateways(children NSGatewaysList) *bambou.Error {
-
-	list := []bambou.Identifiable{}
-	for _, c := range children {
-		list = append(list, c)
-	}
-
-	return bambou.CurrentSession().AssignChildren(o, list, NSGatewayIdentity)
 }

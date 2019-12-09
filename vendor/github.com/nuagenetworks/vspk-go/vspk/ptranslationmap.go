@@ -55,14 +55,19 @@ type PTranslationMapsParent interface {
 
 // PTranslationMap represents the model of a ptranslationmap
 type PTranslationMap struct {
-	ID              string        `json:"ID,omitempty"`
-	ParentID        string        `json:"parentID,omitempty"`
-	ParentType      string        `json:"parentType,omitempty"`
-	Owner           string        `json:"owner,omitempty"`
-	SPATSourceList  []interface{} `json:"SPATSourceList,omitempty"`
-	MappingType     string        `json:"mappingType,omitempty"`
-	ProviderAliasIP string        `json:"providerAliasIP,omitempty"`
-	ProviderIP      string        `json:"providerIP,omitempty"`
+	ID                 string        `json:"ID,omitempty"`
+	ParentID           string        `json:"parentID,omitempty"`
+	ParentType         string        `json:"parentType,omitempty"`
+	Owner              string        `json:"owner,omitempty"`
+	SPATSourceList     []interface{} `json:"SPATSourceList,omitempty"`
+	MappingType        string        `json:"mappingType,omitempty"`
+	LastUpdatedBy      string        `json:"lastUpdatedBy,omitempty"`
+	EmbeddedMetadata   []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope        string        `json:"entityScope,omitempty"`
+	ProviderAliasIP    string        `json:"providerAliasIP,omitempty"`
+	ProviderIP         string        `json:"providerIP,omitempty"`
+	AssociatedDomainID string        `json:"associatedDomainID,omitempty"`
+	ExternalID         string        `json:"externalID,omitempty"`
 }
 
 // NewPTranslationMap returns a new *PTranslationMap
@@ -105,4 +110,32 @@ func (o *PTranslationMap) Save() *bambou.Error {
 func (o *PTranslationMap) Delete() *bambou.Error {
 
 	return bambou.CurrentSession().DeleteEntity(o)
+}
+
+// Metadatas retrieves the list of child Metadatas of the PTranslationMap
+func (o *PTranslationMap) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *bambou.Error) {
+
+	var list MetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, MetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateMetadata creates a new child Metadata under the PTranslationMap
+func (o *PTranslationMap) CreateMetadata(child *Metadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// GlobalMetadatas retrieves the list of child GlobalMetadatas of the PTranslationMap
+func (o *PTranslationMap) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
+
+	var list GlobalMetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, GlobalMetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateGlobalMetadata creates a new child GlobalMetadata under the PTranslationMap
+func (o *PTranslationMap) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
 }

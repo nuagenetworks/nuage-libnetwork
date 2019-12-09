@@ -25,6 +25,8 @@ package bambou
 
 import (
 	"fmt"
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -1199,6 +1201,69 @@ func TestSession_Send(t *testing.T) {
 
 			req, _ := http.NewRequest("GET", ts.URL, nil)
 			resp, err := session.send(req, nil)
+
+			Convey("Then response status code should be 200", func() {
+				So(resp.StatusCode, ShouldEqual, http.StatusOK)
+			})
+
+			Convey("The choice should have been made", func() {
+				So(choiceMade, ShouldBeTrue)
+			})
+
+			Convey("Then error should be nil", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I send a request with a body that returns Multiple Choices", func() {
+
+			type Test struct {
+				Test string
+			}
+
+			body := Test{
+				Test: "test",
+			}
+			
+			buffer := new(bytes.Buffer)
+			_ = json.NewEncoder(buffer).Encode(body)
+
+			choiceMade := false
+			sameRequestBody := false
+			queryStringSet := false
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				
+				if choiceMade {
+					w.WriteHeader(http.StatusOK)
+					var requestBody Test
+					_ = json.NewDecoder(r.Body).Decode(&requestBody)
+					if requestBody.Test == "test" {
+						sameRequestBody = true
+					}
+					if r.URL.RawQuery == "responseChoice=1" {
+						queryStringSet = true
+					}
+				} else {
+					w.WriteHeader(http.StatusMultipleChoices)
+					choiceMade = true
+				}
+			}))
+			defer ts.Close()
+			session := NewSession("username", "password", "organization", ts.URL, r)
+			
+			req, _ := http.NewRequest("POST", ts.URL, buffer)
+			
+			resp, err := session.send(req, nil)
+			var responseBody Test
+			_ = json.NewDecoder(resp.Body).Decode(&responseBody)
+
+			Convey("Then second request body should be the same as original request body", func() {
+				So(sameRequestBody, ShouldBeTrue)
+			})
+
+			Convey("Then second request query string should be equal to responseChoice=1", func() {
+				So(queryStringSet, ShouldBeTrue)
+			})
 
 			Convey("Then response status code should be 200", func() {
 				So(resp.StatusCode, ShouldEqual, http.StatusOK)

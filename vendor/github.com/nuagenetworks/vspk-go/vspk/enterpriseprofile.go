@@ -64,6 +64,7 @@ type EnterpriseProfile struct {
 	VNFManagementEnabled                   bool          `json:"VNFManagementEnabled"`
 	Name                                   string        `json:"name,omitempty"`
 	LastUpdatedBy                          string        `json:"lastUpdatedBy,omitempty"`
+	WebFilterEnabled                       bool          `json:"webFilterEnabled"`
 	ReceiveMultiCastListID                 string        `json:"receiveMultiCastListID,omitempty"`
 	SendMultiCastListID                    string        `json:"sendMultiCastListID,omitempty"`
 	Description                            string        `json:"description,omitempty"`
@@ -72,9 +73,11 @@ type EnterpriseProfile struct {
 	AllowTrustedForwardingClass            bool          `json:"allowTrustedForwardingClass"`
 	AllowedForwardingClasses               []interface{} `json:"allowedForwardingClasses,omitempty"`
 	FloatingIPsQuota                       int           `json:"floatingIPsQuota,omitempty"`
+	EmbeddedMetadata                       []interface{} `json:"embeddedMetadata,omitempty"`
 	EnableApplicationPerformanceManagement bool          `json:"enableApplicationPerformanceManagement"`
 	EncryptionManagementMode               string        `json:"encryptionManagementMode,omitempty"`
 	EntityScope                            string        `json:"entityScope,omitempty"`
+	ForwardingClass                        []interface{} `json:"forwardingClass,omitempty"`
 	ExternalID                             string        `json:"externalID,omitempty"`
 }
 
@@ -84,6 +87,7 @@ func NewEnterpriseProfile() *EnterpriseProfile {
 	return &EnterpriseProfile{
 		DHCPLeaseInterval:                      24,
 		VNFManagementEnabled:                   false,
+		WebFilterEnabled:                       false,
 		FloatingIPsQuota:                       100,
 		EnableApplicationPerformanceManagement: false,
 	}

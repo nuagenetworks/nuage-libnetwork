@@ -55,14 +55,18 @@ type PolicyEntriesParent interface {
 
 // PolicyEntry represents the model of a policyentry
 type PolicyEntry struct {
-	ID            string      `json:"ID,omitempty"`
-	ParentID      string      `json:"parentID,omitempty"`
-	ParentType    string      `json:"parentType,omitempty"`
-	Owner         string      `json:"owner,omitempty"`
-	Name          string      `json:"name,omitempty"`
-	MatchCriteria interface{} `json:"matchCriteria,omitempty"`
-	Actions       interface{} `json:"actions,omitempty"`
-	Description   string      `json:"description,omitempty"`
+	ID               string        `json:"ID,omitempty"`
+	ParentID         string        `json:"parentID,omitempty"`
+	ParentType       string        `json:"parentType,omitempty"`
+	Owner            string        `json:"owner,omitempty"`
+	Name             string        `json:"name,omitempty"`
+	LastUpdatedBy    string        `json:"lastUpdatedBy,omitempty"`
+	MatchCriteria    string        `json:"matchCriteria,omitempty"`
+	Actions          interface{}   `json:"actions,omitempty"`
+	Description      string        `json:"description,omitempty"`
+	EmbeddedMetadata []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope      string        `json:"entityScope,omitempty"`
+	ExternalID       string        `json:"externalID,omitempty"`
 }
 
 // NewPolicyEntry returns a new *PolicyEntry
@@ -105,4 +109,32 @@ func (o *PolicyEntry) Save() *bambou.Error {
 func (o *PolicyEntry) Delete() *bambou.Error {
 
 	return bambou.CurrentSession().DeleteEntity(o)
+}
+
+// Metadatas retrieves the list of child Metadatas of the PolicyEntry
+func (o *PolicyEntry) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *bambou.Error) {
+
+	var list MetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, MetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateMetadata creates a new child Metadata under the PolicyEntry
+func (o *PolicyEntry) CreateMetadata(child *Metadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// GlobalMetadatas retrieves the list of child GlobalMetadatas of the PolicyEntry
+func (o *PolicyEntry) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
+
+	var list GlobalMetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, GlobalMetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateGlobalMetadata creates a new child GlobalMetadata under the PolicyEntry
+func (o *PolicyEntry) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
 }

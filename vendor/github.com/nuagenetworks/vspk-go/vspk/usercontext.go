@@ -55,16 +55,24 @@ type UserContextsParent interface {
 
 // UserContext represents the model of a usercontext
 type UserContext struct {
-	ID                     string `json:"ID,omitempty"`
-	ParentID               string `json:"parentID,omitempty"`
-	ParentType             string `json:"parentType,omitempty"`
-	Owner                  string `json:"owner,omitempty"`
-	AARFlowStatsInterval   int    `json:"AARFlowStatsInterval,omitempty"`
-	AARProbeStatsInterval  int    `json:"AARProbeStatsInterval,omitempty"`
-	VSSStatsInterval       int    `json:"VSSStatsInterval,omitempty"`
-	FlowCollectionEnabled  bool   `json:"flowCollectionEnabled"`
-	StatisticsEnabled      bool   `json:"statisticsEnabled"`
-	StatsTSDBServerAddress string `json:"statsTSDBServerAddress,omitempty"`
+	ID                     string        `json:"ID,omitempty"`
+	ParentID               string        `json:"parentID,omitempty"`
+	ParentType             string        `json:"parentType,omitempty"`
+	Owner                  string        `json:"owner,omitempty"`
+	AARFlowStatsInterval   int           `json:"AARFlowStatsInterval,omitempty"`
+	AARProbeStatsInterval  int           `json:"AARProbeStatsInterval,omitempty"`
+	VSSFeatureEnabled      bool          `json:"VSSFeatureEnabled"`
+	VSSStatsInterval       int           `json:"VSSStatsInterval,omitempty"`
+	PageSize               int           `json:"pageSize,omitempty"`
+	LastUpdatedBy          string        `json:"lastUpdatedBy,omitempty"`
+	FlowCollectionEnabled  bool          `json:"flowCollectionEnabled"`
+	EmbeddedMetadata       []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope            string        `json:"entityScope,omitempty"`
+	GoogleMapsAPIKey       string        `json:"googleMapsAPIKey,omitempty"`
+	StatisticsEnabled      bool          `json:"statisticsEnabled"`
+	StatsDatabaseProxy     string        `json:"statsDatabaseProxy,omitempty"`
+	StatsTSDBServerAddress string        `json:"statsTSDBServerAddress,omitempty"`
+	ExternalID             string        `json:"externalID,omitempty"`
 }
 
 // NewUserContext returns a new *UserContext
@@ -73,6 +81,7 @@ func NewUserContext() *UserContext {
 	return &UserContext{
 		AARFlowStatsInterval:  30,
 		AARProbeStatsInterval: 30,
+		VSSFeatureEnabled:     false,
 		VSSStatsInterval:      30,
 	}
 }
@@ -111,4 +120,32 @@ func (o *UserContext) Save() *bambou.Error {
 func (o *UserContext) Delete() *bambou.Error {
 
 	return bambou.CurrentSession().DeleteEntity(o)
+}
+
+// Metadatas retrieves the list of child Metadatas of the UserContext
+func (o *UserContext) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *bambou.Error) {
+
+	var list MetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, MetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateMetadata creates a new child Metadata under the UserContext
+func (o *UserContext) CreateMetadata(child *Metadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// GlobalMetadatas retrieves the list of child GlobalMetadatas of the UserContext
+func (o *UserContext) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
+
+	var list GlobalMetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, GlobalMetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateGlobalMetadata creates a new child GlobalMetadata under the UserContext
+func (o *UserContext) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
 }

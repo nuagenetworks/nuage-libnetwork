@@ -110,11 +110,3 @@ func (o *ProxyARPFilter) Delete() *bambou.Error {
 
 	return bambou.CurrentSession().DeleteEntity(o)
 }
-
-// EventLogs retrieves the list of child EventLogs of the ProxyARPFilter
-func (o *ProxyARPFilter) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error) {
-
-	var list EventLogsList
-	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
-	return list, err
-}

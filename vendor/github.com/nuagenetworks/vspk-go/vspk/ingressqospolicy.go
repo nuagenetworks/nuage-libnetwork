@@ -63,6 +63,7 @@ type IngressQOSPolicy struct {
 	ParentQueueAssociatedRateLimiterID string        `json:"parentQueueAssociatedRateLimiterID,omitempty"`
 	LastUpdatedBy                      string        `json:"lastUpdatedBy,omitempty"`
 	Description                        string        `json:"description,omitempty"`
+	EmbeddedMetadata                   []interface{} `json:"embeddedMetadata,omitempty"`
 	EntityScope                        string        `json:"entityScope,omitempty"`
 	AssocEgressQosId                   string        `json:"assocEgressQosId,omitempty"`
 	Queue1AssociatedRateLimiterID      string        `json:"queue1AssociatedRateLimiterID,omitempty"`

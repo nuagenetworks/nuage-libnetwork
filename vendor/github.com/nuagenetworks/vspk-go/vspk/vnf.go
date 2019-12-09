@@ -55,29 +55,35 @@ type VNFsParent interface {
 
 // VNF represents the model of a vnf
 type VNF struct {
-	ID                      string `json:"ID,omitempty"`
-	ParentID                string `json:"parentID,omitempty"`
-	ParentType              string `json:"parentType,omitempty"`
-	Owner                   string `json:"owner,omitempty"`
-	VNFDescriptorID         string `json:"VNFDescriptorID,omitempty"`
-	VNFDescriptorName       string `json:"VNFDescriptorName,omitempty"`
-	CPUCount                int    `json:"CPUCount,omitempty"`
-	NSGName                 string `json:"NSGName,omitempty"`
-	NSGSystemID             string `json:"NSGSystemID,omitempty"`
-	NSGatewayID             string `json:"NSGatewayID,omitempty"`
-	Name                    string `json:"name,omitempty"`
-	TaskState               string `json:"taskState,omitempty"`
-	LastKnownError          string `json:"lastKnownError,omitempty"`
-	MemoryMB                int    `json:"memoryMB,omitempty"`
-	Vendor                  string `json:"vendor,omitempty"`
-	Description             string `json:"description,omitempty"`
-	MetadataID              string `json:"metadataID,omitempty"`
-	AllowedActions          string `json:"allowedActions,omitempty"`
-	EnterpriseID            string `json:"enterpriseID,omitempty"`
-	IsAttachedToDescriptor  bool   `json:"isAttachedToDescriptor"`
-	AssociatedVNFMetadataID string `json:"associatedVNFMetadataID,omitempty"`
-	Status                  string `json:"status,omitempty"`
-	StorageGB               int    `json:"storageGB,omitempty"`
+	ID                             string        `json:"ID,omitempty"`
+	ParentID                       string        `json:"parentID,omitempty"`
+	ParentType                     string        `json:"parentType,omitempty"`
+	Owner                          string        `json:"owner,omitempty"`
+	VNFDescriptorID                string        `json:"VNFDescriptorID,omitempty"`
+	VNFDescriptorName              string        `json:"VNFDescriptorName,omitempty"`
+	CPUCount                       int           `json:"CPUCount,omitempty"`
+	NSGName                        string        `json:"NSGName,omitempty"`
+	NSGSystemID                    string        `json:"NSGSystemID,omitempty"`
+	NSGatewayID                    string        `json:"NSGatewayID,omitempty"`
+	Name                           string        `json:"name,omitempty"`
+	TaskState                      string        `json:"taskState,omitempty"`
+	LastKnownError                 string        `json:"lastKnownError,omitempty"`
+	LastUpdatedBy                  string        `json:"lastUpdatedBy,omitempty"`
+	LastUserAction                 string        `json:"lastUserAction,omitempty"`
+	MemoryMB                       int           `json:"memoryMB,omitempty"`
+	Vendor                         string        `json:"vendor,omitempty"`
+	Description                    string        `json:"description,omitempty"`
+	AllowedActions                 []interface{} `json:"allowedActions,omitempty"`
+	EmbeddedMetadata               []interface{} `json:"embeddedMetadata,omitempty"`
+	EnterpriseID                   string        `json:"enterpriseID,omitempty"`
+	EntityScope                    string        `json:"entityScope,omitempty"`
+	IsAttachedToDescriptor         bool          `json:"isAttachedToDescriptor"`
+	AssociatedVNFMetadataID        string        `json:"associatedVNFMetadataID,omitempty"`
+	AssociatedVNFThresholdPolicyID string        `json:"associatedVNFThresholdPolicyID,omitempty"`
+	Status                         string        `json:"status,omitempty"`
+	StorageGB                      int           `json:"storageGB,omitempty"`
+	ExternalID                     string        `json:"externalID,omitempty"`
+	Type                           string        `json:"type,omitempty"`
 }
 
 // NewVNF returns a new *VNF
@@ -124,6 +130,34 @@ func (o *VNF) Delete() *bambou.Error {
 	return bambou.CurrentSession().DeleteEntity(o)
 }
 
+// Metadatas retrieves the list of child Metadatas of the VNF
+func (o *VNF) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *bambou.Error) {
+
+	var list MetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, MetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateMetadata creates a new child Metadata under the VNF
+func (o *VNF) CreateMetadata(child *Metadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// GlobalMetadatas retrieves the list of child GlobalMetadatas of the VNF
+func (o *VNF) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
+
+	var list GlobalMetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, GlobalMetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateGlobalMetadata creates a new child GlobalMetadata under the VNF
+func (o *VNF) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
 // VNFInterfaces retrieves the list of child VNFInterfaces of the VNF
 func (o *VNF) VNFInterfaces(info *bambou.FetchingInfo) (VNFInterfacesList, *bambou.Error) {
 
@@ -137,6 +171,14 @@ func (o *VNF) VNFMetadatas(info *bambou.FetchingInfo) (VNFMetadatasList, *bambou
 
 	var list VNFMetadatasList
 	err := bambou.CurrentSession().FetchChildren(o, VNFMetadataIdentity, &list, info)
+	return list, err
+}
+
+// VNFThresholdPolicies retrieves the list of child VNFThresholdPolicies of the VNF
+func (o *VNF) VNFThresholdPolicies(info *bambou.FetchingInfo) (VNFThresholdPoliciesList, *bambou.Error) {
+
+	var list VNFThresholdPoliciesList
+	err := bambou.CurrentSession().FetchChildren(o, VNFThresholdPolicyIdentity, &list, info)
 	return list, err
 }
 

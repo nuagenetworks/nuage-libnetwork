@@ -55,63 +55,85 @@ type SubnetsParent interface {
 
 // Subnet represents the model of a subnet
 type Subnet struct {
-	ID                                string `json:"ID,omitempty"`
-	ParentID                          string `json:"parentID,omitempty"`
-	ParentType                        string `json:"parentType,omitempty"`
-	Owner                             string `json:"owner,omitempty"`
-	PATEnabled                        string `json:"PATEnabled,omitempty"`
-	DHCPRelayStatus                   string `json:"DHCPRelayStatus,omitempty"`
-	DPI                               string `json:"DPI,omitempty"`
-	IPType                            string `json:"IPType,omitempty"`
-	IPv6Address                       string `json:"IPv6Address,omitempty"`
-	IPv6Gateway                       string `json:"IPv6Gateway,omitempty"`
-	MaintenanceMode                   string `json:"maintenanceMode,omitempty"`
-	Name                              string `json:"name,omitempty"`
-	LastUpdatedBy                     string `json:"lastUpdatedBy,omitempty"`
-	Gateway                           string `json:"gateway,omitempty"`
-	GatewayMACAddress                 string `json:"gatewayMACAddress,omitempty"`
-	AccessRestrictionEnabled          bool   `json:"accessRestrictionEnabled"`
-	Address                           string `json:"address,omitempty"`
-	Advertise                         bool   `json:"advertise"`
-	DefaultAction                     string `json:"defaultAction,omitempty"`
-	TemplateID                        string `json:"templateID,omitempty"`
-	ServiceID                         int    `json:"serviceID,omitempty"`
-	Description                       string `json:"description,omitempty"`
-	ResourceType                      string `json:"resourceType,omitempty"`
-	Netmask                           string `json:"netmask,omitempty"`
-	VnId                              int    `json:"vnId,omitempty"`
-	Encryption                        string `json:"encryption,omitempty"`
-	Underlay                          bool   `json:"underlay"`
-	UnderlayEnabled                   string `json:"underlayEnabled,omitempty"`
-	EntityScope                       string `json:"entityScope,omitempty"`
-	EntityState                       string `json:"entityState,omitempty"`
-	PolicyGroupID                     int    `json:"policyGroupID,omitempty"`
-	RouteDistinguisher                string `json:"routeDistinguisher,omitempty"`
-	RouteTarget                       string `json:"routeTarget,omitempty"`
-	SplitSubnet                       bool   `json:"splitSubnet"`
-	ProxyARP                          bool   `json:"proxyARP"`
-	UseGlobalMAC                      string `json:"useGlobalMAC,omitempty"`
-	AssociatedMulticastChannelMapID   string `json:"associatedMulticastChannelMapID,omitempty"`
-	AssociatedSharedNetworkResourceID string `json:"associatedSharedNetworkResourceID,omitempty"`
-	Public                            bool   `json:"public"`
-	Multicast                         string `json:"multicast,omitempty"`
-	ExternalID                        string `json:"externalID,omitempty"`
-	DynamicIpv6Address                bool   `json:"dynamicIpv6Address"`
+	ID                                string        `json:"ID,omitempty"`
+	ParentID                          string        `json:"parentID,omitempty"`
+	ParentType                        string        `json:"parentType,omitempty"`
+	Owner                             string        `json:"owner,omitempty"`
+	PATEnabled                        string        `json:"PATEnabled,omitempty"`
+	DHCPRelayStatus                   string        `json:"DHCPRelayStatus,omitempty"`
+	DPI                               string        `json:"DPI,omitempty"`
+	IPType                            string        `json:"IPType,omitempty"`
+	IPv6Address                       string        `json:"IPv6Address,omitempty"`
+	IPv6Gateway                       string        `json:"IPv6Gateway,omitempty"`
+	EVPNEnabled                       bool          `json:"EVPNEnabled"`
+	MaintenanceMode                   string        `json:"maintenanceMode,omitempty"`
+	Name                              string        `json:"name,omitempty"`
+	LastUpdatedBy                     string        `json:"lastUpdatedBy,omitempty"`
+	Gateway                           string        `json:"gateway,omitempty"`
+	GatewayMACAddress                 string        `json:"gatewayMACAddress,omitempty"`
+	AccessRestrictionEnabled          bool          `json:"accessRestrictionEnabled"`
+	Address                           string        `json:"address,omitempty"`
+	Advertise                         bool          `json:"advertise"`
+	TemplateID                        string        `json:"templateID,omitempty"`
+	ServiceID                         int           `json:"serviceID,omitempty"`
+	Description                       string        `json:"description,omitempty"`
+	ResourceType                      string        `json:"resourceType,omitempty"`
+	Netmask                           string        `json:"netmask,omitempty"`
+	LinkLocalAddress                  string        `json:"linkLocalAddress,omitempty"`
+	EmbeddedMetadata                  []interface{} `json:"embeddedMetadata,omitempty"`
+	VnId                              int           `json:"vnId,omitempty"`
+	EnableDHCPv4                      bool          `json:"enableDHCPv4"`
+	EnableDHCPv6                      bool          `json:"enableDHCPv6"`
+	Encryption                        string        `json:"encryption,omitempty"`
+	Underlay                          bool          `json:"underlay"`
+	UnderlayEnabled                   string        `json:"underlayEnabled,omitempty"`
+	IngressReplicationEnabled         bool          `json:"ingressReplicationEnabled"`
+	EntityScope                       string        `json:"entityScope,omitempty"`
+	EntityState                       string        `json:"entityState,omitempty"`
+	PolicyGroupID                     int           `json:"policyGroupID,omitempty"`
+	Color                             int           `json:"color,omitempty"`
+	DomainServiceLabel                string        `json:"domainServiceLabel,omitempty"`
+	RouteDistinguisher                string        `json:"routeDistinguisher,omitempty"`
+	RouteTarget                       string        `json:"routeTarget,omitempty"`
+	SplitSubnet                       bool          `json:"splitSubnet"`
+	ProxyARP                          bool          `json:"proxyARP"`
+	VrrpIPv6BackupAddress             string        `json:"vrrpIPv6BackupAddress,omitempty"`
+	UseGlobalMAC                      string        `json:"useGlobalMAC,omitempty"`
+	AssociatedMulticastChannelMapID   string        `json:"associatedMulticastChannelMapID,omitempty"`
+	AssociatedSharedNetworkResourceID string        `json:"associatedSharedNetworkResourceID,omitempty"`
+	DualStackDynamicIPAllocation      bool          `json:"dualStackDynamicIPAllocation"`
+	Public                            bool          `json:"public"`
+	SubnetVLANID                      int           `json:"subnetVLANID,omitempty"`
+	MultiHomeEnabled                  bool          `json:"multiHomeEnabled"`
+	Multicast                         string        `json:"multicast,omitempty"`
+	CustomerID                        int           `json:"customerID,omitempty"`
+	ExternalID                        string        `json:"externalID,omitempty"`
 }
 
 // NewSubnet returns a new *Subnet
 func NewSubnet() *Subnet {
 
 	return &Subnet{
-		PATEnabled:               "INHERITED",
-		DPI:                      "INHERITED",
-		IPType:                   "IPV4",
-		MaintenanceMode:          "DISABLED",
-		AccessRestrictionEnabled: false,
-		Advertise:                true,
-		ResourceType:             "STANDARD",
-		Multicast:                "INHERITED",
-		DynamicIpv6Address:       false,
+		PATEnabled:                   "INHERITED",
+		DPI:                          "INHERITED",
+		IPType:                       "IPV4",
+		EVPNEnabled:                  true,
+		MaintenanceMode:              "DISABLED",
+		AccessRestrictionEnabled:     false,
+		Advertise:                    true,
+		ResourceType:                 "STANDARD",
+		LinkLocalAddress:             "fe80::1",
+		EnableDHCPv4:                 true,
+		EnableDHCPv6:                 false,
+		Encryption:                   "INHERITED",
+		UnderlayEnabled:              "INHERITED",
+		IngressReplicationEnabled:    false,
+		Color:                        0,
+		VrrpIPv6BackupAddress:        "fe80::ffff:ffff:ffff:ffff",
+		UseGlobalMAC:                 "ENTERPRISE_DEFAULT",
+		DualStackDynamicIPAllocation: true,
+		MultiHomeEnabled:             false,
+		Multicast:                    "INHERITED",
 	}
 }
 
@@ -187,6 +209,28 @@ func (o *Subnet) CreateAddressRange(child *AddressRange) *bambou.Error {
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
+// DefaultGateways retrieves the list of child DefaultGateways of the Subnet
+func (o *Subnet) DefaultGateways(info *bambou.FetchingInfo) (DefaultGatewaysList, *bambou.Error) {
+
+	var list DefaultGatewaysList
+	err := bambou.CurrentSession().FetchChildren(o, DefaultGatewayIdentity, &list, info)
+	return list, err
+}
+
+// DeploymentFailures retrieves the list of child DeploymentFailures of the Subnet
+func (o *Subnet) DeploymentFailures(info *bambou.FetchingInfo) (DeploymentFailuresList, *bambou.Error) {
+
+	var list DeploymentFailuresList
+	err := bambou.CurrentSession().FetchChildren(o, DeploymentFailureIdentity, &list, info)
+	return list, err
+}
+
+// CreateDeploymentFailure creates a new child DeploymentFailure under the Subnet
+func (o *Subnet) CreateDeploymentFailure(child *DeploymentFailure) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
 // VMResyncs retrieves the list of child VMResyncs of the Subnet
 func (o *Subnet) VMResyncs(info *bambou.FetchingInfo) (VMResyncsList, *bambou.Error) {
 
@@ -239,6 +283,20 @@ func (o *Subnet) DHCPOptions(info *bambou.FetchingInfo) (DHCPOptionsList, *bambo
 
 // CreateDHCPOption creates a new child DHCPOption under the Subnet
 func (o *Subnet) CreateDHCPOption(child *DHCPOption) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// DHCPv6Options retrieves the list of child DHCPv6Options of the Subnet
+func (o *Subnet) DHCPv6Options(info *bambou.FetchingInfo) (DHCPv6OptionsList, *bambou.Error) {
+
+	var list DHCPv6OptionsList
+	err := bambou.CurrentSession().FetchChildren(o, DHCPv6OptionIdentity, &list, info)
+	return list, err
+}
+
+// CreateDHCPv6Option creates a new child DHCPv6Option under the Subnet
+func (o *Subnet) CreateDHCPv6Option(child *DHCPv6Option) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }

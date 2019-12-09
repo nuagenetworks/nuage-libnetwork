@@ -55,15 +55,20 @@ type OverlayMirrorDestinationTemplatesParent interface {
 
 // OverlayMirrorDestinationTemplate represents the model of a overlaymirrordestinationtemplate
 type OverlayMirrorDestinationTemplate struct {
-	ID                string `json:"ID,omitempty"`
-	ParentID          string `json:"parentID,omitempty"`
-	ParentType        string `json:"parentType,omitempty"`
-	Owner             string `json:"owner,omitempty"`
-	Name              string `json:"name,omitempty"`
-	RedundancyEnabled bool   `json:"redundancyEnabled"`
-	Description       string `json:"description,omitempty"`
-	EndPointType      string `json:"endPointType,omitempty"`
-	TriggerType       string `json:"triggerType,omitempty"`
+	ID                string        `json:"ID,omitempty"`
+	ParentID          string        `json:"parentID,omitempty"`
+	ParentType        string        `json:"parentType,omitempty"`
+	Owner             string        `json:"owner,omitempty"`
+	Name              string        `json:"name,omitempty"`
+	LastUpdatedBy     string        `json:"lastUpdatedBy,omitempty"`
+	RedundancyEnabled bool          `json:"redundancyEnabled"`
+	Description       string        `json:"description,omitempty"`
+	DestinationType   string        `json:"destinationType,omitempty"`
+	EmbeddedMetadata  []interface{} `json:"embeddedMetadata,omitempty"`
+	EndPointType      string        `json:"endPointType,omitempty"`
+	EntityScope       string        `json:"entityScope,omitempty"`
+	TriggerType       string        `json:"triggerType,omitempty"`
+	ExternalID        string        `json:"externalID,omitempty"`
 }
 
 // NewOverlayMirrorDestinationTemplate returns a new *OverlayMirrorDestinationTemplate
@@ -106,4 +111,32 @@ func (o *OverlayMirrorDestinationTemplate) Save() *bambou.Error {
 func (o *OverlayMirrorDestinationTemplate) Delete() *bambou.Error {
 
 	return bambou.CurrentSession().DeleteEntity(o)
+}
+
+// Metadatas retrieves the list of child Metadatas of the OverlayMirrorDestinationTemplate
+func (o *OverlayMirrorDestinationTemplate) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *bambou.Error) {
+
+	var list MetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, MetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateMetadata creates a new child Metadata under the OverlayMirrorDestinationTemplate
+func (o *OverlayMirrorDestinationTemplate) CreateMetadata(child *Metadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// GlobalMetadatas retrieves the list of child GlobalMetadatas of the OverlayMirrorDestinationTemplate
+func (o *OverlayMirrorDestinationTemplate) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
+
+	var list GlobalMetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, GlobalMetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateGlobalMetadata creates a new child GlobalMetadata under the OverlayMirrorDestinationTemplate
+func (o *OverlayMirrorDestinationTemplate) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
 }

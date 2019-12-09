@@ -60,12 +60,15 @@ type Metadata struct {
 	ParentType                  string        `json:"parentType,omitempty"`
 	Owner                       string        `json:"owner,omitempty"`
 	Name                        string        `json:"name,omitempty"`
+	LastUpdatedBy               string        `json:"lastUpdatedBy,omitempty"`
 	Description                 string        `json:"description,omitempty"`
 	MetadataTagIDs              []interface{} `json:"metadataTagIDs,omitempty"`
 	NetworkNotificationDisabled bool          `json:"networkNotificationDisabled"`
 	Blob                        string        `json:"blob,omitempty"`
 	GlobalMetadata              bool          `json:"globalMetadata"`
 	EntityScope                 string        `json:"entityScope,omitempty"`
+	AssocEntityID               string        `json:"assocEntityID,omitempty"`
+	AssocEntityType             string        `json:"assocEntityType,omitempty"`
 	ExternalID                  string        `json:"externalID,omitempty"`
 }
 

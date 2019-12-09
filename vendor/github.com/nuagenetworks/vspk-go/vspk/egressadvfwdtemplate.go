@@ -55,21 +55,24 @@ type EgressAdvFwdTemplatesParent interface {
 
 // EgressAdvFwdTemplate represents the model of a egressadvfwdtemplate
 type EgressAdvFwdTemplate struct {
-	ID                     string `json:"ID,omitempty"`
-	ParentID               string `json:"parentID,omitempty"`
-	ParentType             string `json:"parentType,omitempty"`
-	Owner                  string `json:"owner,omitempty"`
-	Name                   string `json:"name,omitempty"`
-	LastUpdatedBy          string `json:"lastUpdatedBy,omitempty"`
-	Active                 bool   `json:"active"`
-	Description            string `json:"description,omitempty"`
-	EntityScope            string `json:"entityScope,omitempty"`
-	PolicyState            string `json:"policyState,omitempty"`
-	Priority               int    `json:"priority,omitempty"`
-	PriorityType           string `json:"priorityType,omitempty"`
-	AssociatedLiveEntityID string `json:"associatedLiveEntityID,omitempty"`
-	AutoGeneratePriority   bool   `json:"autoGeneratePriority"`
-	ExternalID             string `json:"externalID,omitempty"`
+	ID                     string        `json:"ID,omitempty"`
+	ParentID               string        `json:"parentID,omitempty"`
+	ParentType             string        `json:"parentType,omitempty"`
+	Owner                  string        `json:"owner,omitempty"`
+	Name                   string        `json:"name,omitempty"`
+	LastUpdatedBy          string        `json:"lastUpdatedBy,omitempty"`
+	Active                 bool          `json:"active"`
+	DefaultAllowIP         bool          `json:"defaultAllowIP"`
+	DefaultAllowNonIP      bool          `json:"defaultAllowNonIP"`
+	Description            string        `json:"description,omitempty"`
+	EmbeddedMetadata       []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope            string        `json:"entityScope,omitempty"`
+	PolicyState            string        `json:"policyState,omitempty"`
+	Priority               int           `json:"priority,omitempty"`
+	PriorityType           string        `json:"priorityType,omitempty"`
+	AssociatedLiveEntityID string        `json:"associatedLiveEntityID,omitempty"`
+	AutoGeneratePriority   bool          `json:"autoGeneratePriority"`
+	ExternalID             string        `json:"externalID,omitempty"`
 }
 
 // NewEgressAdvFwdTemplate returns a new *EgressAdvFwdTemplate
@@ -152,12 +155,6 @@ func (o *EgressAdvFwdTemplate) GlobalMetadatas(info *bambou.FetchingInfo) (Globa
 
 // CreateGlobalMetadata creates a new child GlobalMetadata under the EgressAdvFwdTemplate
 func (o *EgressAdvFwdTemplate) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
-// CreateJob creates a new child Job under the EgressAdvFwdTemplate
-func (o *EgressAdvFwdTemplate) CreateJob(child *Job) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }
