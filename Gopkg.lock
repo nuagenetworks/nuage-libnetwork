@@ -187,12 +187,12 @@
   revision = "040a718b3509314ecb3278290ef1f6eca077c0eb"
 
 [[projects]]
-  digest = "1:28991d38727ae057116b4cfc8c5b1b60d812e10c97a6fdabd7e0a30bca40051c"
+  digest = "1:8ad59876f4ebfae5b9b0695fb7caaf891a75b83a2a573ead333649706975f535"
   name = "github.com/nuagenetworks/vspk-go"
   packages = ["vspk"]
   pruneopts = ""
-  revision = "c660dc9da3993d8b4448035eca2143a538c03cc5"
-  version = "v6.0.3"
+  revision = "5c80336451333378e4e3bca2ed42d1026d4d306a"
+  version = "v6.0.4"
 
 [[projects]]
   digest = "1:5d9b668b0b4581a978f07e7d2e3314af18eb27b3fb5d19b70185b7c575723d11"
