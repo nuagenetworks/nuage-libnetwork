@@ -1,0 +1,39 @@
+- project:
+    templates:
+      - golang-jobs
+    check:
+      jobs:
+        - golang-lint:
+            voting: false
+        - libnetwork-build-image
+        - libnetwork-integration-centos7
+    gate:
+      jobs:
+        - golang-lint:
+            voting: false
+        - libnetwork-build-image
+        - libnetwork-integration-centos7
+- job:
+    name: libnetwork-build-image
+    parent: nuage-build-docker-image
+    nodeset: centos-7
+    vars:
+      vsp_release: "{{ nuage_vsp_release }}"
+      go_task: build
+      zuul_work_dir: "{{ ansible_user_dir }}/src/github.com/{{ zuul.project.name }}"
+      docker_images:
+        - context: .
+          dockerfile: Dockerfile
+          repository: nuage/libnetwork
+- job:
+    name: libnetwork-integration-base
+    abstract: yes
+    parent: nuage-deploy-base
+    dependencies: libnetwork-build-image
+    run: ci/run.yaml
+    post-run: ci/post.yaml
+- job:
+    name: libnetwork-integration-centos7
+    parent: libnetwork-integration-base
+    nodeset: centos-7
+

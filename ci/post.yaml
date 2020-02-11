@@ -1,0 +1,11 @@
+- hosts: all
+  tasks:
+    - name: Create container log dir
+      file:
+        path: "{{ ansible_user_dir }}/zuul-output/logs/{{ container_command }}"
+        state: directory
+    - name: Dump libnetwork log
+      become: yes
+      command: >
+        docker cp libnetwork:/var/log/nuage-libnetwork/nuage-libnetwork.log
+        {{ ansible_user_dir }}/zuul-output/logs/{{ container_command }}

@@ -1,0 +1,88 @@
+- hosts: all
+  roles:
+    - role: vsp-inventory
+    - role: install-vrs
+      active_controller: "{{ nuage_vsp_fact.vsp_vsc }}"
+  tasks:
+    - name: Accept VSD host key
+      shell: |
+        ssh-keyscan {{ item }} >> ~/.ssh/known_hosts
+      with_items: "{{ groups['vsd'] | map('extract', hostvars, ['ansible_ssh_host']) | list }}"
+      run_once: yes
+      delegate_to: localhost
+
+- hosts: all,!vsp
+  vars:
+    auth:
+      api_username: csproot
+      api_password: csproot
+      api_enterprise: csp
+      api_url: "https://{{ groups['vsd'] | map('extract', hostvars, ['ansible_ssh_host']) | list | first }}:8443"
+      api_version: 'v6'
+  tasks:
+    - name: Install python vspk on target
+      become: yes
+      pip:
+        name: vspk
+      environment: "{{ proxy_env |default({}) }}"
+
+    - name: Setup VSD
+      include_role:
+        name: vsd-config
+      vars:
+        nuage_auth: "{{ auth }}"
+        enterprise_name: LibnetworkOrg
+
+    - name: Configure libnetwork
+      become: yes
+      copy:
+        content: |
+          vrssocketfile:    "/var/run/openvswitch/db.sock"
+          dockersocketfile: "unix:///var/run/docker.sock"
+          vrsbridge:      "alubr0"
+          loglevel:       "Debug"
+          logfilesize:    10
+          scope:          "local"
+          numofretries:   5
+          timeinterval:   100
+          username: Y3Nwcm9vdA==
+          password: Y3Nwcm9vdA==
+          organization: Y3Nw
+          url: https://{{ nuage_vsp_fact.vsp_vsd }}
+        dest: /etc/default/nuage-libnetwork.yaml
+        force: yes
+        mode: 0644
+    - name: Start libnetwork container
+      become: yes
+      command: >
+        docker run  --name libnetwork -v /usr/bin/:/usr/bin/ -v /usr/lib64/:/usr/lib64 -v /var/run:/var/run
+        -v /var/log:/var/log -v /etc/default:/etc/default --net=host --privileged -dt nuage/libnetwork
+    - name: Create docker deployment network
+      become: yes
+      command: >
+        docker network create --driver=nuage --ipam-driver=nuage-ipam --ipam-opt organization=LibnetworkOrg
+        --ipam-opt domain=TestDomain --ipam-opt zone=TestZone --ipam-opt subnet=TestSubnet --ipam-opt user=csproot
+        --subnet=10.10.10.0/24  --gateway=10.10.10.1 NuageNet
+    - name: Start nginx container in nuage network
+      become: yes
+      command: >
+        docker run --name nginx1 --net NuageNet -p 80:80 -d nginx
+    - name: Inspect nginx container
+      become: yes
+      command: >
+        docker inspect nginx1
+      register: nginx_out
+    - name: Start centos container
+      become: yes
+      command: >
+        docker run --name centos1 --net NuageNet -d -it centos /bin/bash
+    - name: Ping subnet gateway from within container
+      become: yes
+      command: >
+        docker exec centos1 ping -c3 10.10.10.1
+    - name: Check intercontainer connectivity
+      become: yes
+      vars:
+        nginx: "{{ nginx_out.stdout | from_json | first }}"
+      command: >
+        docker exec centos1 curl -v http://{{ nginx.NetworkSettings.Networks.NuageNet.IPAddress }}

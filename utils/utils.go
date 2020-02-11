@@ -68,7 +68,7 @@ func (h *HashMap) GetKeys() []string {
 	h.Lock()
 	defer h.Unlock()
 	keys := []string{}
-	for key, _ := range h.table {
+	for key := range h.table {
 		keys = append(keys, key)
 	}
 	return keys
