@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/docker/libnetwork/driverapi"
 	"github.com/docker/libnetwork/drivers/overlay"
@@ -23,10 +22,6 @@ type endpoint struct {
 	addr *net.IPNet
 	mac  net.HardwareAddr
 	name string
-}
-
-func (r *router) GetPluginGetter() plugingetter.PluginGetter {
-	return nil
 }
 
 func (r *router) RegisterDriver(name string, driver driverapi.Driver, c driverapi.Capability) error {
@@ -97,10 +92,6 @@ func (ep *endpoint) AddStaticRoute(destination *net.IPNet, routeType int,
 	return nil
 }
 
-func (ep *endpoint) AddTableEntry(tableName string, key string, value []byte) error {
-	return nil
-}
-
 func (ep *endpoint) DisableGatewayService() {}
 
 func main() {
@@ -129,7 +120,7 @@ func main() {
 	}
 
 	if err := r.d.CreateNetwork("testnetwork",
-		map[string]interface{}{}, nil, nil, nil); err != nil {
+		map[string]interface{}{}, nil, nil); err != nil {
 		fmt.Printf("Failed to create network in the driver: %v\n", err)
 		os.Exit(1)
 	}

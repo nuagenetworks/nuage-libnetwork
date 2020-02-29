@@ -3,14 +3,15 @@
 package overlay2
 
 import (
+	"io/ioutil"
 	"os"
-	"syscall"
 	"testing"
 
 	"github.com/docker/docker/daemon/graphdriver"
 	"github.com/docker/docker/daemon/graphdriver/graphtest"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/reexec"
+	"golang.org/x/sys/unix"
 )
 
 func init() {
@@ -30,7 +31,19 @@ func cdMountFrom(dir, device, target, mType, label string) error {
 	os.Chdir(dir)
 	defer os.Chdir(wd)
 
-	return syscall.Mount(device, target, mType, 0, label)
+	return unix.Mount(device, target, mType, 0, label)
+}
+
+func skipIfNaive(t *testing.T) {
+	td, err := ioutil.TempDir("", "naive-check-")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(td)
+
+	if useNaiveDiff(td) {
+		t.Skipf("Cannot run test with naive diff")
+	}
 }
 
 // This avoids creating a new driver for each test if all tests are run
@@ -56,10 +69,12 @@ func TestOverlay128LayerRead(t *testing.T) {
 }
 
 func TestOverlayDiffApply10Files(t *testing.T) {
+	skipIfNaive(t)
 	graphtest.DriverTestDiffApply(t, 10, driverName)
 }
 
 func TestOverlayChanges(t *testing.T) {
+	skipIfNaive(t)
 	graphtest.DriverTestChanges(t, driverName)
 }
 

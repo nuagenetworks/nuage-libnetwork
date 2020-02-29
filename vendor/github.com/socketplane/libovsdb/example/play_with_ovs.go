@@ -55,10 +55,11 @@ func createBridge(ovs *libovsdb.OvsdbClient, bridgeName string) {
 	}
 
 	// Inserting a Bridge row in Bridge table requires mutating the open_vswitch table.
+	uuidParameter := libovsdb.UUID{GoUUID: getRootUUID()}
 	mutateUUID := []libovsdb.UUID{{namedUUID}}
 	mutateSet, _ := libovsdb.NewOvsSet(mutateUUID)
 	mutation := libovsdb.NewMutation("bridges", "insert", mutateSet)
-	condition := libovsdb.NewCondition("_uuid", "==", libovsdb.UUID{getRootUUID()})
+	condition := libovsdb.NewCondition("_uuid", "==", uuidParameter)
 
 	// simple mutate operation
 	mutateOp := libovsdb.Operation{

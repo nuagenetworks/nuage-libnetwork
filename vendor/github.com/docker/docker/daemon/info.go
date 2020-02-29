@@ -1,14 +1,16 @@
 package daemon
 
 import (
+	"fmt"
 	"os"
 	"runtime"
-	"sync/atomic"
+	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/docker/docker/api"
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/container"
+	"github.com/docker/docker/cli/debug"
+	"github.com/docker/docker/daemon/logger"
 	"github.com/docker/docker/dockerversion"
 	"github.com/docker/docker/pkg/fileutils"
 	"github.com/docker/docker/pkg/parsers/kernel"
@@ -17,9 +19,9 @@ import (
 	"github.com/docker/docker/pkg/sysinfo"
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/registry"
-	"github.com/docker/docker/utils"
 	"github.com/docker/docker/volume/drivers"
 	"github.com/docker/go-connections/sockets"
+	"github.com/sirupsen/logrus"
 )
 
 // SystemInfo returns information about the host server the daemon is running on.
@@ -55,55 +57,58 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 	}
 
 	sysInfo := sysinfo.New(true)
+	cRunning, cPaused, cStopped := stateCtr.get()
 
-	var cRunning, cPaused, cStopped int32
-	daemon.containers.ApplyAll(func(c *container.Container) {
-		switch c.StateString() {
-		case "paused":
-			atomic.AddInt32(&cPaused, 1)
-		case "running":
-			atomic.AddInt32(&cRunning, 1)
-		default:
-			atomic.AddInt32(&cStopped, 1)
-		}
-	})
-
-	securityOptions := []types.SecurityOpt{}
+	securityOptions := []string{}
 	if sysInfo.AppArmor {
-		securityOptions = append(securityOptions, types.SecurityOpt{Key: "Name", Value: "apparmor"})
+		securityOptions = append(securityOptions, "name=apparmor")
 	}
 	if sysInfo.Seccomp && supportsSeccomp {
 		profile := daemon.seccompProfilePath
 		if profile == "" {
 			profile = "default"
 		}
-		securityOptions = append(securityOptions,
-			types.SecurityOpt{Key: "Name", Value: "seccomp"},
-			types.SecurityOpt{Key: "Profile", Value: profile},
-		)
+		securityOptions = append(securityOptions, fmt.Sprintf("name=seccomp,profile=%s", profile))
 	}
 	if selinuxEnabled() {
-		securityOptions = append(securityOptions, types.SecurityOpt{Key: "Name", Value: "selinux"})
+		securityOptions = append(securityOptions, "name=selinux")
 	}
-	uid, gid := daemon.GetRemappedUIDGID()
-	if uid != 0 || gid != 0 {
-		securityOptions = append(securityOptions, types.SecurityOpt{Key: "Name", Value: "userns"})
+	rootIDs := daemon.idMappings.RootPair()
+	if rootIDs.UID != 0 || rootIDs.GID != 0 {
+		securityOptions = append(securityOptions, "name=userns")
 	}
 
-	v := &types.InfoBase{
+	imageCount := 0
+	drivers := ""
+	for p, ds := range daemon.stores {
+		imageCount += len(ds.imageStore.Map())
+		drivers += daemon.GraphDriverName(p)
+		if len(daemon.stores) > 1 {
+			drivers += fmt.Sprintf(" (%s) ", p)
+		}
+	}
+
+	// TODO @jhowardmsft LCOW support. For now, hard-code the platform shown for the driver status
+	p := runtime.GOOS
+	if system.LCOWSupported() {
+		p = "linux"
+	}
+
+	drivers = strings.TrimSpace(drivers)
+	v := &types.Info{
 		ID:                 daemon.ID,
-		Containers:         int(cRunning + cPaused + cStopped),
-		ContainersRunning:  int(cRunning),
-		ContainersPaused:   int(cPaused),
-		ContainersStopped:  int(cStopped),
-		Images:             len(daemon.imageStore.Map()),
-		Driver:             daemon.GraphDriverName(),
-		DriverStatus:       daemon.layerStore.DriverStatus(),
+		Containers:         cRunning + cPaused + cStopped,
+		ContainersRunning:  cRunning,
+		ContainersPaused:   cPaused,
+		ContainersStopped:  cStopped,
+		Images:             imageCount,
+		Driver:             drivers,
+		DriverStatus:       daemon.stores[p].layerStore.DriverStatus(),
 		Plugins:            daemon.showPluginsInfo(),
 		IPv4Forwarding:     !sysInfo.IPv4ForwardingDisabled,
 		BridgeNfIptables:   !sysInfo.BridgeNFCallIPTablesDisabled,
 		BridgeNfIP6tables:  !sysInfo.BridgeNFCallIP6TablesDisabled,
-		Debug:              utils.IsDebugEnabled(),
+		Debug:              debug.IsEnabled(),
 		NFd:                fileutils.GetTotalUsedFds(),
 		NGoroutines:        runtime.NumGoroutine(),
 		SystemTime:         time.Now().Format(time.RFC3339Nano),
@@ -118,6 +123,7 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 		RegistryConfig:     daemon.RegistryService.ServiceConfig(),
 		NCPU:               sysinfo.NumCPU(),
 		MemTotal:           meminfo.MemTotal,
+		GenericResources:   daemon.genericResources,
 		DockerRootDir:      daemon.configStore.Root,
 		Labels:             daemon.configStore.Labels,
 		ExperimentalBuild:  daemon.configStore.Experimental,
@@ -128,25 +134,12 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 		HTTPSProxy:         sockets.GetProxyEnv("https_proxy"),
 		NoProxy:            sockets.GetProxyEnv("no_proxy"),
 		LiveRestoreEnabled: daemon.configStore.LiveRestoreEnabled,
+		SecurityOptions:    securityOptions,
 		Isolation:          daemon.defaultIsolation,
 	}
 
-	// TODO Windows. Refactor this more once sysinfo is refactored into
-	// platform specific code. On Windows, sysinfo.cgroupMemInfo and
-	// sysinfo.cgroupCpuInfo will be nil otherwise and cause a SIGSEGV if
-	// an attempt is made to access through them.
-	if runtime.GOOS != "windows" {
-		v.MemoryLimit = sysInfo.MemoryLimit
-		v.SwapLimit = sysInfo.SwapLimit
-		v.KernelMemory = sysInfo.KernelMemory
-		v.OomKillDisable = sysInfo.OomKillDisable
-		v.CPUCfsPeriod = sysInfo.CPUCfsPeriod
-		v.CPUCfsQuota = sysInfo.CPUCfsQuota
-		v.CPUShares = sysInfo.CPUShares
-		v.CPUSet = sysInfo.Cpuset
-		v.Runtimes = daemon.configStore.GetAllRuntimes()
-		v.DefaultRuntime = daemon.configStore.GetDefaultRuntimeName()
-	}
+	// Retrieve platform specific info
+	daemon.FillPlatformInfo(v, sysInfo)
 
 	hostname := ""
 	if hn, err := os.Hostname(); err != nil {
@@ -156,33 +149,51 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 	}
 	v.Name = hostname
 
-	i := &types.Info{
-		InfoBase:        v,
-		SecurityOptions: securityOptions,
-	}
-
-	return i, nil
+	return v, nil
 }
 
 // SystemVersion returns version information about the daemon.
 func (daemon *Daemon) SystemVersion() types.Version {
-	v := types.Version{
-		Version:      dockerversion.Version,
-		GitCommit:    dockerversion.GitCommit,
-		GoVersion:    runtime.Version(),
-		Os:           runtime.GOOS,
-		Arch:         runtime.GOARCH,
-		BuildTime:    dockerversion.BuildTime,
-		Experimental: daemon.configStore.Experimental,
-	}
-
 	kernelVersion := "<unknown>"
 	if kv, err := kernel.GetKernelVersion(); err != nil {
 		logrus.Warnf("Could not get kernel version: %v", err)
 	} else {
 		kernelVersion = kv.String()
 	}
-	v.KernelVersion = kernelVersion
+
+	v := types.Version{
+		Components: []types.ComponentVersion{
+			{
+				Name:    "Engine",
+				Version: dockerversion.Version,
+				Details: map[string]string{
+					"GitCommit":     dockerversion.GitCommit,
+					"ApiVersion":    api.DefaultVersion,
+					"MinAPIVersion": api.MinVersion,
+					"GoVersion":     runtime.Version(),
+					"Os":            runtime.GOOS,
+					"Arch":          runtime.GOARCH,
+					"BuildTime":     dockerversion.BuildTime,
+					"KernelVersion": kernelVersion,
+					"Experimental":  fmt.Sprintf("%t", daemon.configStore.Experimental),
+				},
+			},
+		},
+
+		// Populate deprecated fields for older clients
+		Version:       dockerversion.Version,
+		GitCommit:     dockerversion.GitCommit,
+		APIVersion:    api.DefaultVersion,
+		MinAPIVersion: api.MinVersion,
+		GoVersion:     runtime.Version(),
+		Os:            runtime.GOOS,
+		Arch:          runtime.GOARCH,
+		BuildTime:     dockerversion.BuildTime,
+		KernelVersion: kernelVersion,
+		Experimental:  daemon.configStore.Experimental,
+	}
+
+	v.Platform.Name = dockerversion.PlatformName
 
 	return v
 }
@@ -192,7 +203,10 @@ func (daemon *Daemon) showPluginsInfo() types.PluginsInfo {
 
 	pluginsInfo.Volume = volumedrivers.GetDriverList()
 	pluginsInfo.Network = daemon.GetNetworkDriverList()
+	// The authorization plugins are returned in the order they are
+	// used as they constitute a request/response modification chain.
 	pluginsInfo.Authorization = daemon.configStore.AuthorizationPlugins
+	pluginsInfo.Log = logger.ListDrivers()
 
 	return pluginsInfo
 }

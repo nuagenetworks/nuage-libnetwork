@@ -1,7 +1,6 @@
 package remote
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/docker/docker/pkg/plugins"
 	"github.com/docker/libnetwork/datastore"
-	"github.com/docker/libnetwork/discoverapi"
 	"github.com/docker/libnetwork/driverapi"
 	_ "github.com/docker/libnetwork/testutils"
 	"github.com/docker/libnetwork/types"
@@ -46,7 +44,7 @@ func setupPlugin(t *testing.T, name string, mux *http.ServeMux) func() {
 
 	server := httptest.NewServer(mux)
 	if server == nil {
-		t.Fatal("Failed to start an HTTP Server")
+		t.Fatal("Failed to start a HTTP Server")
 	}
 
 	if err := ioutil.WriteFile(fmt.Sprintf("/etc/docker/plugins/%s.spec", name), []byte(server.URL), 0644); err != nil {
@@ -199,10 +197,6 @@ func (test *testEndpoint) DisableGatewayService() {
 	test.disableGatewayService = true
 }
 
-func (test *testEndpoint) AddTableEntry(tableName string, key string, value []byte) error {
-	return nil
-}
-
 func TestGetEmptyCapabilities(t *testing.T) {
 	var plugin = "test-net-driver-empty-cap"
 
@@ -218,7 +212,7 @@ func TestGetEmptyCapabilities(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d := newDriver(plugin, p.Client())
+	d := newDriver(plugin, p.Client)
 	if d.Type() != plugin {
 		t.Fatal("Driver type does not match that given")
 	}
@@ -247,7 +241,7 @@ func TestGetExtraCapabilities(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d := newDriver(plugin, p.Client())
+	d := newDriver(plugin, p.Client)
 	if d.Type() != plugin {
 		t.Fatal("Driver type does not match that given")
 	}
@@ -277,7 +271,7 @@ func TestGetInvalidCapabilities(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d := newDriver(plugin, p.Client())
+	d := newDriver(plugin, p.Client)
 	if d.Type() != plugin {
 		t.Fatal("Driver type does not match that given")
 	}
@@ -297,7 +291,7 @@ func TestRemoteDriver(t *testing.T) {
 		dst:            "vethdst",
 		address:        "192.168.5.7/16",
 		addressIPv6:    "2001:DB8::5:7/48",
-		macAddress:     "ab:cd:ef:ee:ee:ee",
+		macAddress:     "",
 		gateway:        "192.168.0.1",
 		gatewayIPv6:    "2001:DB8::1",
 		hostsPath:      "/here/comes/the/host/path",
@@ -333,9 +327,7 @@ func TestRemoteDriver(t *testing.T) {
 	})
 	handle(t, mux, "CreateEndpoint", func(msg map[string]interface{}) interface{} {
 		iface := map[string]interface{}{
-			"MacAddress":  ep.macAddress,
-			"Address":     ep.address,
-			"AddressIPv6": ep.addressIPv6,
+			"MacAddress": ep.macAddress,
 		}
 		return map[string]interface{}{
 			"Interface": iface,
@@ -391,7 +383,7 @@ func TestRemoteDriver(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d := newDriver(plugin, p.Client())
+	d := newDriver(plugin, p.Client)
 	if d.Type() != plugin {
 		t.Fatal("Driver type does not match that given")
 	}
@@ -404,23 +396,15 @@ func TestRemoteDriver(t *testing.T) {
 	}
 
 	netID := "dummy-network"
-	err = d.CreateNetwork(netID, map[string]interface{}{}, nil, nil, nil)
+	err = d.CreateNetwork(netID, map[string]interface{}{}, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	endID := "dummy-endpoint"
-	ifInfo := &testEndpoint{}
-	err = d.CreateEndpoint(netID, endID, ifInfo, map[string]interface{}{})
+	err = d.CreateEndpoint(netID, endID, ep, map[string]interface{}{})
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	if !bytes.Equal(ep.MacAddress(), ifInfo.MacAddress()) || !types.CompareIPNet(ep.Address(), ifInfo.Address()) ||
-		!types.CompareIPNet(ep.AddressIPv6(), ifInfo.AddressIPv6()) {
-		t.Fatalf("Unexpected InterfaceInfo data. Expected (%s, %s, %s). Got (%v, %v, %v)",
-			ep.MacAddress(), ep.Address(), ep.AddressIPv6(),
-			ifInfo.MacAddress(), ifInfo.Address(), ifInfo.AddressIPv6())
 	}
 
 	joinOpts := map[string]interface{}{"foo": "fooValue"}
@@ -441,13 +425,13 @@ func TestRemoteDriver(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	data := discoverapi.NodeDiscoveryData{
+	data := driverapi.NodeDiscoveryData{
 		Address: "192.168.1.1",
 	}
-	if err = d.DiscoverNew(discoverapi.NodeDiscovery, data); err != nil {
+	if err = d.DiscoverNew(driverapi.NodeDiscovery, data); err != nil {
 		t.Fatal(err)
 	}
-	if err = d.DiscoverDelete(discoverapi.NodeDiscovery, data); err != nil {
+	if err = d.DiscoverDelete(driverapi.NodeDiscovery, data); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -469,7 +453,7 @@ func TestDriverError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	driver := newDriver(plugin, p.Client())
+	driver := newDriver(plugin, p.Client)
 
 	if err := driver.CreateEndpoint("dummy", "dummy", &testEndpoint{t: t}, map[string]interface{}{}); err == nil {
 		t.Fatalf("Expected error from driver")
@@ -501,7 +485,7 @@ func TestMissingValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	driver := newDriver(plugin, p.Client())
+	driver := newDriver(plugin, p.Client)
 
 	if err := driver.CreateEndpoint("dummy", "dummy", ep, map[string]interface{}{}); err != nil {
 		t.Fatal(err)
@@ -562,7 +546,7 @@ func TestRollback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	driver := newDriver(plugin, p.Client())
+	driver := newDriver(plugin, p.Client)
 
 	ep := &rollbackEndpoint{}
 

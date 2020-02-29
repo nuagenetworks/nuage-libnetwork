@@ -6,7 +6,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/plugins"
-	"github.com/docker/libnetwork/discoverapi"
 	"github.com/docker/libnetwork/ipamapi"
 	"github.com/docker/libnetwork/ipams/remote/api"
 	"github.com/docker/libnetwork/types"
@@ -30,13 +29,7 @@ func newAllocator(name string, client *plugins.Client) ipamapi.Ipam {
 
 // Init registers a remote ipam when its plugin is activated
 func Init(cb ipamapi.Callback, l, g interface{}) error {
-
-	// Unit test code is unaware of a true PluginStore. So we fall back to v1 plugins.
-	handleFunc := plugins.Handle
-	if pg := cb.GetPluginGetter(); pg != nil {
-		handleFunc = pg.Handle
-	}
-	handleFunc(ipamapi.PluginEndpointType, func(name string, client *plugins.Client) {
+	plugins.Handle(ipamapi.PluginEndpointType, func(name string, client *plugins.Client) {
 		a := newAllocator(name, client)
 		if cps, err := a.(*allocator).getCapabilities(); err == nil {
 			if err := cb.RegisterIpamDriverWithCapabilities(name, a, cps); err != nil {
@@ -117,8 +110,6 @@ func (a *allocator) RequestAddress(poolID string, address net.IP, options map[st
 	}
 	if res.Address != "" {
 		retAddress, err = types.ParseCIDR(res.Address)
-	} else {
-		return nil, nil, ipamapi.ErrNoIPReturned
 	}
 	return retAddress, res.Data, err
 }
@@ -132,14 +123,4 @@ func (a *allocator) ReleaseAddress(poolID string, address net.IP) error {
 	req := &api.ReleaseAddressRequest{PoolID: poolID, Address: relAddress}
 	res := &api.ReleaseAddressResponse{}
 	return a.call("ReleaseAddress", req, res)
-}
-
-// DiscoverNew is a notification for a new discovery event, such as a new global datastore
-func (a *allocator) DiscoverNew(dType discoverapi.DiscoveryType, data interface{}) error {
-	return nil
-}
-
-// DiscoverDelete is a notification for a discovery delete event, such as a node leaving a cluster
-func (a *allocator) DiscoverDelete(dType discoverapi.DiscoveryType, data interface{}) error {
-	return nil
 }

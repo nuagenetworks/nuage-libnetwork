@@ -6,6 +6,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/libnetwork/iptables"
+	"github.com/docker/libnetwork/netutils"
 )
 
 // DockerChain: DOCKER iptable chain name
@@ -59,8 +60,6 @@ func setupIPChains(config *configuration) (*iptables.ChainInfo, *iptables.ChainI
 }
 
 func (n *bridgeNetwork) setupIPTables(config *networkConfiguration, i *bridgeInterface) error {
-	var err error
-
 	d := n.driver
 	d.Lock()
 	driverConfig := d.config
@@ -74,9 +73,14 @@ func (n *bridgeNetwork) setupIPTables(config *networkConfiguration, i *bridgeInt
 	// Pickup this configuraton option from driver
 	hairpinMode := !driverConfig.EnableUserlandProxy
 
+	addrv4, _, err := netutils.GetIfaceAddr(config.BridgeName)
+	if err != nil {
+		return fmt.Errorf("Failed to setup IP tables, cannot acquire Interface address: %s", err.Error())
+	}
+	ipnet := addrv4.(*net.IPNet)
 	maskedAddrv4 := &net.IPNet{
-		IP:   i.bridgeIPv4.IP.Mask(i.bridgeIPv4.Mask),
-		Mask: i.bridgeIPv4.Mask,
+		IP:   ipnet.IP.Mask(ipnet.Mask),
+		Mask: ipnet.Mask,
 	}
 	if config.Internal {
 		if err = setupInternalNetworkRules(config.BridgeName, maskedAddrv4, true); err != nil {
@@ -111,7 +115,7 @@ func (n *bridgeNetwork) setupIPTables(config *networkConfiguration, i *bridgeInt
 			return iptables.ProgramChain(filterChain, config.BridgeName, hairpinMode, false)
 		})
 
-		n.portMapper.SetIptablesChain(natChain, n.getNetworkBridgeName())
+		n.portMapper.SetIptablesChain(filterChain, n.getNetworkBridgeName())
 	}
 
 	if err := ensureJumpRule("FORWARD", IsolationChain); err != nil {
@@ -134,7 +138,6 @@ func setupIPTablesInternal(bridgeIface string, addr net.Addr, icc, ipmasq, hairp
 		address   = addr.String()
 		natRule   = iptRule{table: iptables.Nat, chain: "POSTROUTING", preArgs: []string{"-t", "nat"}, args: []string{"-s", address, "!", "-o", bridgeIface, "-j", "MASQUERADE"}}
 		hpNatRule = iptRule{table: iptables.Nat, chain: "POSTROUTING", preArgs: []string{"-t", "nat"}, args: []string{"-m", "addrtype", "--src-type", "LOCAL", "-o", bridgeIface, "-j", "MASQUERADE"}}
-		skipDNAT  = iptRule{table: iptables.Nat, chain: DockerChain, preArgs: []string{"-t", "nat"}, args: []string{"-i", bridgeIface, "-j", "RETURN"}}
 		outRule   = iptRule{table: iptables.Filter, chain: "FORWARD", args: []string{"-i", bridgeIface, "!", "-o", bridgeIface, "-j", "ACCEPT"}}
 		inRule    = iptRule{table: iptables.Filter, chain: "FORWARD", args: []string{"-o", bridgeIface, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT"}}
 	)
@@ -142,12 +145,6 @@ func setupIPTablesInternal(bridgeIface string, addr net.Addr, icc, ipmasq, hairp
 	// Set NAT.
 	if ipmasq {
 		if err := programChainRule(natRule, "NAT", enable); err != nil {
-			return err
-		}
-	}
-
-	if ipmasq && !hairpin {
-		if err := programChainRule(skipDNAT, "SKIP DNAT", enable); err != nil {
 			return err
 		}
 	}

@@ -9,7 +9,7 @@ if [ -z ${PLUGIN_NAME} ]; then
     exit 1
 fi
 
-go build
+# go build
 TMPDIR=$(mktemp -d nuage.tmp.XXXXX)
 mkdir -p $TMPDIR/rootfs
 

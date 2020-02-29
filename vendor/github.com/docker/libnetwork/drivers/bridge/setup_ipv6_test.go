@@ -14,13 +14,7 @@ import (
 func TestSetupIPv6(t *testing.T) {
 	defer testutils.SetupTestOSContext(t)()
 
-	nh, err := netlink.NewHandle()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer nh.Delete()
-
-	config, br := setupTestInterface(t, nh)
+	config, br := setupTestInterface(t)
 	if err := setupBridgeIPv6(config, br); err != nil {
 		t.Fatalf("Failed to setup bridge IPv6: %v", err)
 	}
@@ -34,7 +28,7 @@ func TestSetupIPv6(t *testing.T) {
 		t.Fatalf("Invalid kernel setting disable_ipv6: expected %q, got %q", string(expected), string(procSetting))
 	}
 
-	addrsv6, err := nh.AddrList(br.Link, netlink.FAMILY_V6)
+	addrsv6, err := netlink.AddrList(br.Link, netlink.FAMILY_V6)
 	if err != nil {
 		t.Fatalf("Failed to list device IPv6 addresses: %v", err)
 	}
@@ -64,13 +58,7 @@ func TestSetupGatewayIPv6(t *testing.T) {
 		AddressIPv6:        nw,
 		DefaultGatewayIPv6: gw}
 
-	nh, err := netlink.NewHandle()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer nh.Delete()
-
-	br := &bridgeInterface{nlh: nh}
+	br := &bridgeInterface{}
 
 	if err := setupGatewayIPv6(config, br); err != nil {
 		t.Fatalf("Set Default Gateway failed: %v", err)

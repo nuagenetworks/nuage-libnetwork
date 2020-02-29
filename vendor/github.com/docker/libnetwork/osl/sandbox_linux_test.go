@@ -1,16 +1,15 @@
 package osl
 
 import (
-	"crypto/rand"
-	"encoding/hex"
-	"io"
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"testing"
 	"time"
 
+	"github.com/docker/libnetwork/netutils"
 	"github.com/docker/libnetwork/testutils"
 	"github.com/docker/libnetwork/types"
 	"github.com/vishvananda/netlink"
@@ -26,16 +25,8 @@ const (
 	sboxIfaceName = "containername"
 )
 
-func generateRandomName(prefix string, size int) (string, error) {
-	id := make([]byte, 32)
-	if _, err := io.ReadFull(rand.Reader, id); err != nil {
-		return "", err
-	}
-	return prefix + hex.EncodeToString(id)[:size], nil
-}
-
 func newKey(t *testing.T) (string, error) {
-	name, err := generateRandomName("netns", 12)
+	name, err := netutils.GenerateRandomName("netns", 12)
 	if err != nil {
 		return "", err
 	}
@@ -53,11 +44,11 @@ func newKey(t *testing.T) (string, error) {
 	return name, nil
 }
 
-func newInfo(hnd *netlink.Handle, t *testing.T) (Sandbox, error) {
+func newInfo(t *testing.T) (Sandbox, error) {
 	veth := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{Name: vethName1, TxQLen: 0},
 		PeerName:  vethName2}
-	if err := hnd.LinkAdd(veth); err != nil {
+	if err := netlink.LinkAdd(veth); err != nil {
 		return nil, err
 	}
 
@@ -98,7 +89,7 @@ func newInfo(hnd *netlink.Handle, t *testing.T) (Sandbox, error) {
 		LinkAttrs: netlink.LinkAttrs{Name: vethName3, TxQLen: 0},
 		PeerName:  vethName4}
 
-	if err := hnd.LinkAdd(veth); err != nil {
+	if err := netlink.LinkAdd(veth); err != nil {
 		return nil, err
 	}
 
@@ -122,20 +113,29 @@ func verifySandbox(t *testing.T, s Sandbox, ifaceSuffixes []string) {
 		t.Fatalf("The sandox interface returned is not of type networkNamespace")
 	}
 
-	sbNs, err := netns.GetFromPath(s.Key())
+	origns, err := netns.Get()
+	if err != nil {
+		t.Fatalf("Could not get the current netns: %v", err)
+	}
+	defer origns.Close()
+
+	f, err := os.OpenFile(s.Key(), os.O_RDONLY, 0)
 	if err != nil {
 		t.Fatalf("Failed top open network namespace path %q: %v", s.Key(), err)
 	}
-	defer sbNs.Close()
+	defer f.Close()
 
-	nh, err := netlink.NewHandleAt(sbNs)
-	if err != nil {
-		t.Fatal(err)
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	nsFD := f.Fd()
+	if err = netns.Set(netns.NsHandle(nsFD)); err != nil {
+		t.Fatalf("Setting to the namespace pointed to by the sandbox %s failed: %v", s.Key(), err)
 	}
-	defer nh.Delete()
+	defer netns.Set(origns)
 
 	for _, suffix := range ifaceSuffixes {
-		_, err = nh.LinkByName(sboxIfaceName + suffix)
+		_, err = netlink.LinkByName(sboxIfaceName + suffix)
 		if err != nil {
 			t.Fatalf("Could not find the interface %s inside the sandbox: %v",
 				sboxIfaceName+suffix, err)
@@ -197,26 +197,23 @@ func TestDisableIPv6DAD(t *testing.T) {
 		LinkAttrs: netlink.LinkAttrs{Name: "sideA"},
 		PeerName:  "sideB",
 	}
-	nlh, err := netlink.NewHandle(syscall.NETLINK_ROUTE)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = nlh.LinkAdd(veth)
+
+	err := netlink.LinkAdd(veth)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	link, err := nlh.LinkByName("sideA")
+	link, err := netlink.LinkByName("sideA")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = setInterfaceIPv6(nlh, link, iface)
+	err = setInterfaceIPv6(link, iface)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	addrList, err := nlh.AddrList(link, nl.FAMILY_V6)
+	addrList, err := netlink.AddrList(link, nl.FAMILY_V6)
 	if err != nil {
 		t.Fatal(err)
 	}

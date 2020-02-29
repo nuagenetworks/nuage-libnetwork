@@ -9,15 +9,11 @@ import (
 )
 
 func setupVerifyTest(t *testing.T) *bridgeInterface {
-	nh, err := netlink.NewHandle()
-	if err != nil {
-		t.Fatal(err)
-	}
-	inf := &bridgeInterface{nlh: nh}
+	inf := &bridgeInterface{}
 
 	br := netlink.Bridge{}
 	br.LinkAttrs.Name = "default0"
-	if err := nh.LinkAdd(&br); err == nil {
+	if err := netlink.LinkAdd(&br); err == nil {
 		inf.Link = &br
 	} else {
 		t.Fatalf("Failed to create bridge interface: %v", err)

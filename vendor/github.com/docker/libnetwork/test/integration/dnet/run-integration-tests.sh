@@ -34,28 +34,6 @@ function run_bridge_tests() {
     unset cmap[dnet-1-bridge]
 }
 
-function run_overlay_local_tests() {
-    ## Test overlay network in local scope
-    ## Setup
-    start_dnet 1 local 1>>${INTEGRATION_ROOT}/test.log 2>&1
-    cmap[dnet-1-local]=dnet-1-local
-    start_dnet 2 local:$(dnet_container_ip 1 local) 1>>${INTEGRATION_ROOT}/test.log 2>&1
-    cmap[dnet-2-local]=dnet-2-local
-    start_dnet 3 local:$(dnet_container_ip 1 local) 1>>${INTEGRATION_ROOT}/test.log 2>&1
-    cmap[dnet-3-local]=dnet-3-local
-
-    ## Run the test cases
-    ./integration-tmp/bin/bats ./test/integration/dnet/overlay-local.bats
-
-    ## Teardown
-    stop_dnet 1 local 1>>${INTEGRATION_ROOT}/test.log 2>&1
-    unset cmap[dnet-1-local]
-    stop_dnet 2 local 1>>${INTEGRATION_ROOT}/test.log 2>&1
-    unset cmap[dnet-2-local]
-    stop_dnet 3 local 1>>${INTEGRATION_ROOT}/test.log 2>&1
-    unset cmap[dnet-3-local]
-}
-
 function run_overlay_consul_tests() {
     ## Test overlay network with consul
     ## Setup
@@ -242,9 +220,9 @@ if [ -z "$SUITES" ]; then
     then
 	# We can only run a limited list of suites in circleci because of the
 	# old kernel and limited docker environment.
-	suites="dnet multi_consul multi_zk multi_etcd"
+	suites="dnet simple_consul multi_consul multi_zk multi_etcd"
     else
-	suites="dnet multi_consul multi_zk multi_etcd  bridge overlay_consul overlay_consul_host overlay_zk overlay_etcd"
+	suites="dnet simple_consul multi_consul multi_zk multi_etcd  bridge overlay_consul overlay_consul_host overlay_zk overlay_etcd"
     fi
 else
     suites="$SUITES"

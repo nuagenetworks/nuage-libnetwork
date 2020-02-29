@@ -1,5 +1,3 @@
-// +build !solaris
-
 package netutils
 
 import (
@@ -7,9 +5,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/docker/libnetwork/ipamutils"
-	"github.com/docker/libnetwork/testutils"
-	"github.com/docker/libnetwork/types"
+	_ "github.com/docker/libnetwork/testutils"
 	"github.com/vishvananda/netlink"
 )
 
@@ -42,8 +38,13 @@ func TestOverlapingNameservers(t *testing.T) {
 }
 
 func TestCheckRouteOverlaps(t *testing.T) {
+	orig := networkGetRoutesFct
+	defer func() {
+		networkGetRoutesFct = orig
+	}()
 	networkGetRoutesFct = func(netlink.Link, int) ([]netlink.Route, error) {
 		routesData := []string{"10.0.2.0/32", "10.0.3.0/24", "10.0.42.0/24", "172.16.42.0/24", "192.168.142.0/24"}
+
 		routes := []netlink.Route{}
 		for _, addr := range routesData {
 			_, netX, _ := net.ParseCIDR(addr)
@@ -51,7 +52,6 @@ func TestCheckRouteOverlaps(t *testing.T) {
 		}
 		return routes, nil
 	}
-	defer func() { networkGetRoutesFct = nil }()
 
 	_, netX, _ := net.ParseCIDR("172.16.0.1/24")
 	if err := CheckRouteOverlaps(netX); err != nil {
@@ -208,106 +208,5 @@ func TestUtilGenerateRandomMAC(t *testing.T) {
 	// existing tests check string functionality so keeping the pattern
 	if mac1.String() == mac2.String() {
 		t.Fatalf("mac1 %s should not equal mac2 %s", mac1, mac2)
-	}
-}
-
-func TestNetworkRequest(t *testing.T) {
-	defer testutils.SetupTestOSContext(t)()
-	ipamutils.InitNetworks()
-
-	nw, err := FindAvailableNetwork(ipamutils.PredefinedBroadNetworks)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var found bool
-	for _, exp := range ipamutils.PredefinedBroadNetworks {
-		if types.CompareIPNet(exp, nw) {
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		t.Fatalf("Found unexpected broad network %s", nw)
-	}
-
-	nw, err = FindAvailableNetwork(ipamutils.PredefinedGranularNetworks)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	found = false
-	for _, exp := range ipamutils.PredefinedGranularNetworks {
-		if types.CompareIPNet(exp, nw) {
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		t.Fatalf("Found unexpected granular network %s", nw)
-	}
-
-	// Add iface and ssert returned address on request
-	createInterface(t, "test", "172.17.42.1/16")
-
-	_, exp, err := net.ParseCIDR("172.18.0.0/16")
-	if err != nil {
-		t.Fatal(err)
-	}
-	nw, err = FindAvailableNetwork(ipamutils.PredefinedBroadNetworks)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !types.CompareIPNet(exp, nw) {
-		t.Fatalf("exected %s. got %s", exp, nw)
-	}
-}
-
-func TestElectInterfaceAddress(t *testing.T) {
-	defer testutils.SetupTestOSContext(t)()
-	ipamutils.InitNetworks()
-
-	nws := "172.101.202.254/16"
-	createInterface(t, "test", nws)
-
-	ipv4Nw, ipv6Nw, err := ElectInterfaceAddresses("test")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if ipv4Nw == nil {
-		t.Fatalf("unexpected empty ipv4 network addresses")
-	}
-
-	if len(ipv6Nw) == 0 {
-		t.Fatalf("unexpected empty ipv4 network addresses")
-	}
-
-	if nws != ipv4Nw.String() {
-		t.Fatalf("expected %s. got %s", nws, ipv4Nw)
-	}
-}
-
-func createInterface(t *testing.T, name, nw string) {
-	// Add interface
-	link := &netlink.Bridge{
-		LinkAttrs: netlink.LinkAttrs{
-			Name: "test",
-		},
-	}
-	bip, err := types.ParseCIDR(nw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = netlink.LinkAdd(link); err != nil {
-		t.Fatalf("Failed to create interface via netlink: %v", err)
-	}
-	if err := netlink.AddrAdd(link, &netlink.Addr{IPNet: bip}); err != nil {
-		t.Fatal(err)
-	}
-	if err = netlink.LinkSetUp(link); err != nil {
-		t.Fatal(err)
 	}
 }

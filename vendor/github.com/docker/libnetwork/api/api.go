@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/docker/libnetwork"
@@ -251,12 +250,6 @@ func (sc *sandboxCreate) parseOptions() []libnetwork.SandboxOption {
 			setFctList = append(setFctList, libnetwork.OptionExtraHost(e.Name, e.Address))
 		}
 	}
-	if sc.ExposedPorts != nil {
-		setFctList = append(setFctList, libnetwork.OptionExposedPorts(sc.ExposedPorts))
-	}
-	if sc.PortMapping != nil {
-		setFctList = append(setFctList, libnetwork.OptionPortMapping(sc.PortMapping))
-	}
 	return setFctList
 }
 
@@ -283,43 +276,22 @@ func procCreateNetwork(c libnetwork.NetworkController, vars map[string]string, b
 
 	err := json.Unmarshal(body, &create)
 	if err != nil {
-		return nil, &responseStatus{Status: "Invalid body: " + err.Error(), StatusCode: http.StatusBadRequest}
+		return "", &responseStatus{Status: "Invalid body: " + err.Error(), StatusCode: http.StatusBadRequest}
 	}
 	processCreateDefaults(c, &create)
 
 	options := []libnetwork.NetworkOption{}
-	if val, ok := create.NetworkOpts[netlabel.Internal]; ok {
-		internal, err := strconv.ParseBool(val)
-		if err != nil {
-			return nil, &responseStatus{Status: err.Error(), StatusCode: http.StatusBadRequest}
-		}
-		if internal {
+	if len(create.NetworkOpts) > 0 {
+		if _, ok := create.NetworkOpts[netlabel.Internal]; ok {
 			options = append(options, libnetwork.NetworkOptionInternalNetwork())
 		}
-	}
-	if val, ok := create.NetworkOpts[netlabel.EnableIPv6]; ok {
-		enableIPv6, err := strconv.ParseBool(val)
-		if err != nil {
-			return nil, &responseStatus{Status: err.Error(), StatusCode: http.StatusBadRequest}
-		}
-		options = append(options, libnetwork.NetworkOptionEnableIPv6(enableIPv6))
 	}
 	if len(create.DriverOpts) > 0 {
 		options = append(options, libnetwork.NetworkOptionDriverOpts(create.DriverOpts))
 	}
-
-	if len(create.IPv4Conf) > 0 {
-		ipamV4Conf := &libnetwork.IpamConf{
-			PreferredPool: create.IPv4Conf[0].PreferredPool,
-			SubPool:       create.IPv4Conf[0].SubPool,
-		}
-
-		options = append(options, libnetwork.NetworkOptionIpam("default", "", []*libnetwork.IpamConf{ipamV4Conf}, nil, nil))
-	}
-
-	nw, err := c.NewNetwork(create.NetworkType, create.Name, create.ID, options...)
+	nw, err := c.NewNetwork(create.NetworkType, create.Name, options...)
 	if err != nil {
-		return nil, convertNetworkError(err)
+		return "", convertNetworkError(err)
 	}
 
 	return nw.ID(), &createdResponse
@@ -400,6 +372,13 @@ func procCreateEndpoint(c libnetwork.NetworkController, vars map[string]string, 
 	}
 
 	var setFctList []libnetwork.EndpointOption
+	if ec.ExposedPorts != nil {
+		setFctList = append(setFctList, libnetwork.CreateOptionExposedPorts(ec.ExposedPorts))
+	}
+	if ec.PortMapping != nil {
+		setFctList = append(setFctList, libnetwork.CreateOptionPortMapping(ec.PortMapping))
+	}
+
 	for _, str := range ec.MyAliases {
 		setFctList = append(setFctList, libnetwork.CreateOptionMyAlias(str))
 	}
@@ -642,6 +621,13 @@ func procPublishService(c libnetwork.NetworkController, vars map[string]string, 
 	}
 
 	var setFctList []libnetwork.EndpointOption
+	if sp.ExposedPorts != nil {
+		setFctList = append(setFctList, libnetwork.CreateOptionExposedPorts(sp.ExposedPorts))
+	}
+	if sp.PortMapping != nil {
+		setFctList = append(setFctList, libnetwork.CreateOptionPortMapping(sp.PortMapping))
+	}
+
 	for _, str := range sp.MyAliases {
 		setFctList = append(setFctList, libnetwork.CreateOptionMyAlias(str))
 	}
@@ -707,7 +693,6 @@ func procAttachBackend(c libnetwork.NetworkController, vars map[string]string, b
 	if err != nil {
 		return nil, convertNetworkError(err)
 	}
-
 	return sb.Key(), &successResponse
 }
 

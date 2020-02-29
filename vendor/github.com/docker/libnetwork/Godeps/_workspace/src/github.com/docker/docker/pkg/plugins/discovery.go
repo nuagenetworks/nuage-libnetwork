@@ -9,13 +9,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 )
 
 var (
 	// ErrNotFound plugin not found
-	ErrNotFound = errors.New("plugin not found")
+	ErrNotFound = errors.New("Plugin not found")
 	socketsPath = "/run/docker/plugins"
+	specsPaths  = []string{"/etc/docker/plugins", "/usr/lib/docker/plugins"}
 )
 
 // localRegistry defines a registry that is local (using unix socket).
@@ -25,45 +25,13 @@ func newLocalRegistry() localRegistry {
 	return localRegistry{}
 }
 
-// Scan scans all the plugin paths and returns all the names it found
-func Scan() ([]string, error) {
-	var names []string
-	if err := filepath.Walk(socketsPath, func(path string, fi os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-
-		if fi.Mode()&os.ModeSocket != 0 {
-			name := strings.TrimSuffix(fi.Name(), filepath.Ext(fi.Name()))
-			names = append(names, name)
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	for _, path := range specsPaths {
-		if err := filepath.Walk(path, func(p string, fi os.FileInfo, err error) error {
-			if err != nil || fi.IsDir() {
-				return nil
-			}
-			name := strings.TrimSuffix(fi.Name(), filepath.Ext(fi.Name()))
-			names = append(names, name)
-			return nil
-		}); err != nil {
-			return nil, err
-		}
-	}
-	return names, nil
-}
-
 // Plugin returns the plugin registered with the given name (or returns an error).
 func (l *localRegistry) Plugin(name string) (*Plugin, error) {
 	socketpaths := pluginPaths(socketsPath, name, ".sock")
 
 	for _, p := range socketpaths {
 		if fi, err := os.Stat(p); err == nil && fi.Mode()&os.ModeSocket != 0 {
-			return NewLocalPlugin(name, "unix://"+p), nil
+			return newLocalPlugin(name, "unix://"+p), nil
 		}
 	}
 
@@ -100,7 +68,7 @@ func readPluginInfo(name, path string) (*Plugin, error) {
 		return nil, fmt.Errorf("Unknown protocol")
 	}
 
-	return NewLocalPlugin(name, addr), nil
+	return newLocalPlugin(name, addr), nil
 }
 
 func readPluginJSONInfo(name, path string) (*Plugin, error) {
@@ -114,11 +82,10 @@ func readPluginJSONInfo(name, path string) (*Plugin, error) {
 	if err := json.NewDecoder(f).Decode(&p); err != nil {
 		return nil, err
 	}
-	p.name = name
-	if p.TLSConfig != nil && len(p.TLSConfig.CAFile) == 0 {
+	p.Name = name
+	if len(p.TLSConfig.CAFile) == 0 {
 		p.TLSConfig.InsecureSkipVerify = true
 	}
-	p.activateWait = sync.NewCond(&sync.Mutex{})
 
 	return &p, nil
 }

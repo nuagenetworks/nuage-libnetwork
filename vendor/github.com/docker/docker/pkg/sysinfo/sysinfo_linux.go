@@ -6,15 +6,10 @@ import (
 	"os"
 	"path"
 	"strings"
-	"syscall"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
-)
-
-const (
-	// SeccompModeFilter refers to the syscall argument SECCOMP_MODE_FILTER.
-	SeccompModeFilter = uintptr(2)
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 func findCgroupMountpoints() (map[string]string, error) {
@@ -60,9 +55,9 @@ func New(quiet bool) *SysInfo {
 	}
 
 	// Check if Seccomp is supported, via CONFIG_SECCOMP.
-	if _, _, err := syscall.RawSyscall(syscall.SYS_PRCTL, syscall.PR_GET_SECCOMP, 0, 0); err != syscall.EINVAL {
+	if err := unix.Prctl(unix.PR_GET_SECCOMP, 0, 0, 0, 0); err != unix.EINVAL {
 		// Make sure the kernel has CONFIG_SECCOMP_FILTER.
-		if _, _, err := syscall.RawSyscall(syscall.SYS_PRCTL, syscall.PR_SET_SECCOMP, SeccompModeFilter, 0); err != syscall.EINVAL {
+		if err := unix.Prctl(unix.PR_SET_SECCOMP, unix.SECCOMP_MODE_FILTER, 0, 0, 0); err != unix.EINVAL {
 			sysInfo.Seccomp = true
 		}
 	}
@@ -82,23 +77,23 @@ func checkCgroupMem(cgMounts map[string]string, quiet bool) cgroupMemInfo {
 
 	swapLimit := cgroupEnabled(mountPoint, "memory.memsw.limit_in_bytes")
 	if !quiet && !swapLimit {
-		logrus.Warn("Your kernel does not support swap memory limit.")
+		logrus.Warn("Your kernel does not support swap memory limit")
 	}
 	memoryReservation := cgroupEnabled(mountPoint, "memory.soft_limit_in_bytes")
 	if !quiet && !memoryReservation {
-		logrus.Warn("Your kernel does not support memory reservation.")
+		logrus.Warn("Your kernel does not support memory reservation")
 	}
 	oomKillDisable := cgroupEnabled(mountPoint, "memory.oom_control")
 	if !quiet && !oomKillDisable {
-		logrus.Warn("Your kernel does not support oom control.")
+		logrus.Warn("Your kernel does not support oom control")
 	}
 	memorySwappiness := cgroupEnabled(mountPoint, "memory.swappiness")
 	if !quiet && !memorySwappiness {
-		logrus.Warn("Your kernel does not support memory swappiness.")
+		logrus.Warn("Your kernel does not support memory swappiness")
 	}
 	kernelMemory := cgroupEnabled(mountPoint, "memory.kmem.limit_in_bytes")
 	if !quiet && !kernelMemory {
-		logrus.Warn("Your kernel does not support kernel memory limit.")
+		logrus.Warn("Your kernel does not support kernel memory limit")
 	}
 
 	return cgroupMemInfo{

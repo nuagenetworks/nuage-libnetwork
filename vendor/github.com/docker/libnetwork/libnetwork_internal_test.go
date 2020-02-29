@@ -5,16 +5,58 @@ import (
 	"fmt"
 	"net"
 	"testing"
-	"time"
 
 	"github.com/docker/libnetwork/datastore"
-	"github.com/docker/libnetwork/discoverapi"
 	"github.com/docker/libnetwork/driverapi"
 	"github.com/docker/libnetwork/ipamapi"
 	"github.com/docker/libnetwork/netlabel"
 	"github.com/docker/libnetwork/testutils"
 	"github.com/docker/libnetwork/types"
 )
+
+func TestDriverRegistration(t *testing.T) {
+	bridgeNetType := "bridge"
+	c, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Stop()
+	err = c.(*controller).RegisterDriver(bridgeNetType, nil, driverapi.Capability{})
+	if err == nil {
+		t.Fatalf("Expecting the RegisterDriver to fail for %s", bridgeNetType)
+	}
+	if _, ok := err.(driverapi.ErrActiveRegistration); !ok {
+		t.Fatalf("Failed for unexpected reason: %v", err)
+	}
+	err = c.(*controller).RegisterDriver("test-dummy", nil, driverapi.Capability{})
+	if err != nil {
+		t.Fatalf("Test failed with an error %v", err)
+	}
+}
+
+func TestIpamDriverRegistration(t *testing.T) {
+	c, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Stop()
+
+	err = c.(*controller).RegisterIpamDriver("", nil)
+	if err == nil {
+		t.Fatalf("Expected failure, but suceeded")
+	}
+	if _, ok := err.(types.BadRequestError); !ok {
+		t.Fatalf("Failed for unexpected reason: %v", err)
+	}
+
+	err = c.(*controller).RegisterIpamDriver(ipamapi.DefaultIPAM, nil)
+	if err == nil {
+		t.Fatalf("Expected failure, but suceeded")
+	}
+	if _, ok := err.(types.ForbiddenError); !ok {
+		t.Fatalf("Failed for unexpected reason: %v", err)
+	}
+}
 
 func TestNetworkMarshalling(t *testing.T) {
 	n := &network{
@@ -27,23 +69,22 @@ func TestNetworkMarshalling(t *testing.T) {
 		persist:     true,
 		ipamOptions: map[string]string{
 			netlabel.MacAddress: "a:b:c:d:e:f",
-			"primary":           "",
 		},
 		ipamV4Config: []*IpamConf{
-			{
+			&IpamConf{
 				PreferredPool: "10.2.0.0/16",
 				SubPool:       "10.2.0.0/24",
 				Gateway:       "",
 				AuxAddresses:  nil,
 			},
-			{
+			&IpamConf{
 				PreferredPool: "10.2.0.0/16",
 				SubPool:       "10.2.1.0/24",
 				Gateway:       "10.2.1.254",
 			},
 		},
 		ipamV6Config: []*IpamConf{
-			{
+			&IpamConf{
 				PreferredPool: "abcd::/64",
 				SubPool:       "abcd:abcd:abcd:abcd:abcd::/80",
 				Gateway:       "abcd::29/64",
@@ -51,7 +92,7 @@ func TestNetworkMarshalling(t *testing.T) {
 			},
 		},
 		ipamV4Info: []*IpamInfo{
-			{
+			&IpamInfo{
 				PoolID: "ipoolverde123",
 				Meta: map[string]string{
 					netlabel.Gateway: "10.2.1.255/16",
@@ -66,7 +107,7 @@ func TestNetworkMarshalling(t *testing.T) {
 					AuxAddresses: nil,
 				},
 			},
-			{
+			&IpamInfo{
 				PoolID: "ipoolblue345",
 				Meta: map[string]string{
 					netlabel.Gateway: "10.2.1.255/16",
@@ -79,12 +120,12 @@ func TestNetworkMarshalling(t *testing.T) {
 					},
 					Gateway: &net.IPNet{IP: net.IP{10, 2, 1, 254}, Mask: net.IPMask{255, 255, 255, 0}},
 					AuxAddresses: map[string]*net.IPNet{
-						"ip3": {IP: net.IP{10, 2, 1, 3}, Mask: net.IPMask{255, 255, 255, 0}},
-						"ip5": {IP: net.IP{10, 2, 1, 55}, Mask: net.IPMask{255, 255, 255, 0}},
+						"ip3": &net.IPNet{IP: net.IP{10, 2, 1, 3}, Mask: net.IPMask{255, 255, 255, 0}},
+						"ip5": &net.IPNet{IP: net.IP{10, 2, 1, 55}, Mask: net.IPMask{255, 255, 255, 0}},
 					},
 				},
 			},
-			{
+			&IpamInfo{
 				PoolID: "weirdinfo",
 				IPAMData: driverapi.IPAMData{
 					Gateway: &net.IPNet{
@@ -95,7 +136,7 @@ func TestNetworkMarshalling(t *testing.T) {
 			},
 		},
 		ipamV6Info: []*IpamInfo{
-			{
+			&IpamInfo{
 				PoolID: "ipoolv6",
 				IPAMData: driverapi.IPAMData{
 					AddressSpace: "viola",
@@ -111,11 +152,6 @@ func TestNetworkMarshalling(t *testing.T) {
 				},
 			},
 		},
-		labels: map[string]string{
-			"color":        "blue",
-			"superimposed": "",
-		},
-		created: time.Now(),
 	}
 
 	b, err := json.Marshal(n)
@@ -133,10 +169,7 @@ func TestNetworkMarshalling(t *testing.T) {
 		n.addrSpace != nn.addrSpace || n.enableIPv6 != nn.enableIPv6 ||
 		n.persist != nn.persist || !compareIpamConfList(n.ipamV4Config, nn.ipamV4Config) ||
 		!compareIpamInfoList(n.ipamV4Info, nn.ipamV4Info) || !compareIpamConfList(n.ipamV6Config, nn.ipamV6Config) ||
-		!compareIpamInfoList(n.ipamV6Info, nn.ipamV6Info) ||
-		!compareStringMaps(n.ipamOptions, nn.ipamOptions) ||
-		!compareStringMaps(n.labels, nn.labels) ||
-		!n.created.Equal(nn.created) {
+		!compareIpamInfoList(n.ipamV6Info, nn.ipamV6Info) {
 		t.Fatalf("JSON marsh/unmarsh failed."+
 			"\nOriginal:\n%#v\nDecoded:\n%#v"+
 			"\nOriginal ipamV4Conf: %#v\n\nDecoded ipamV4Conf: %#v"+
@@ -169,7 +202,7 @@ func printIpamInfo(list []*IpamInfo) string {
 }
 
 func TestEndpointMarshalling(t *testing.T) {
-	ip, nw6, err := net.ParseCIDR("2001:db8:4003::122/64")
+	ip, nw6, err := net.ParseCIDR("2001:3002:4003::122/64")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -309,7 +342,7 @@ func TestAuxAddresses(t *testing.T) {
 
 	for _, i := range input {
 
-		n.ipamV4Config = []*IpamConf{{PreferredPool: i.masterPool, SubPool: i.subPool, AuxAddresses: i.auxAddresses}}
+		n.ipamV4Config = []*IpamConf{&IpamConf{PreferredPool: i.masterPool, SubPool: i.subPool, AuxAddresses: i.auxAddresses}}
 
 		err = n.ipamAllocate()
 
@@ -318,102 +351,6 @@ func TestAuxAddresses(t *testing.T) {
 		}
 
 		n.ipamRelease()
-	}
-}
-
-func TestSRVServiceQuery(t *testing.T) {
-	c, err := New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer c.Stop()
-
-	n, err := c.NewNetwork("bridge", "net1", "", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := n.Delete(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	ep, err := n.CreateEndpoint("testep")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	sb, err := c.NewSandbox("c1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := sb.Delete(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	err = ep.Join(sb)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	sr := svcInfo{
-		svcMap:     make(map[string][]net.IP),
-		svcIPv6Map: make(map[string][]net.IP),
-		ipMap:      make(map[string]string),
-		service:    make(map[string][]servicePorts),
-	}
-	// backing container for the service
-	cTarget := serviceTarget{
-		name: "task1.web.swarm",
-		ip:   net.ParseIP("192.168.10.2"),
-		port: 80,
-	}
-	// backing host for the service
-	hTarget := serviceTarget{
-		name: "node1.docker-cluster",
-		ip:   net.ParseIP("10.10.10.2"),
-		port: 45321,
-	}
-	httpPort := servicePorts{
-		portName: "_http",
-		proto:    "_tcp",
-		target:   []serviceTarget{cTarget},
-	}
-
-	extHTTPPort := servicePorts{
-		portName: "_host_http",
-		proto:    "_tcp",
-		target:   []serviceTarget{hTarget},
-	}
-	sr.service["web.swarm"] = append(sr.service["web.swarm"], httpPort)
-	sr.service["web.swarm"] = append(sr.service["web.swarm"], extHTTPPort)
-
-	c.(*controller).svcRecords[n.ID()] = sr
-
-	_, ip := ep.Info().Sandbox().ResolveService("_http._tcp.web.swarm")
-
-	if len(ip) == 0 {
-		t.Fatal(err)
-	}
-	if ip[0].String() != "192.168.10.2" {
-		t.Fatal(err)
-	}
-
-	_, ip = ep.Info().Sandbox().ResolveService("_host_http._tcp.web.swarm")
-
-	if len(ip) == 0 {
-		t.Fatal(err)
-	}
-	if ip[0].String() != "10.10.10.2" {
-		t.Fatal(err)
-	}
-
-	// Service name with invalid protocol name. Should fail without error
-	_, ip = ep.Info().Sandbox().ResolveService("_http._icmp.web.swarm")
-	if len(ip) != 0 {
-		t.Fatal("Valid response for invalid service name")
 	}
 }
 
@@ -430,19 +367,17 @@ func TestIpamReleaseOnNetDriverFailures(t *testing.T) {
 	defer c.Stop()
 
 	cc := c.(*controller)
-
-	if err := cc.drvRegistry.AddDriver(badDriverName, badDriverInit, nil); err != nil {
-		t.Fatal(err)
-	}
+	bd := badDriver{failNetworkCreation: true}
+	cc.drivers[badDriverName] = &driverData{driver: &bd, capability: driverapi.Capability{DataScope: datastore.LocalScope}}
 
 	// Test whether ipam state release is invoked  on network create failure from net driver
 	// by checking whether subsequent network creation requesting same gateway IP succeeds
-	ipamOpt := NetworkOptionIpam(ipamapi.DefaultIPAM, "", []*IpamConf{{PreferredPool: "10.34.0.0/16", Gateway: "10.34.255.254"}}, nil, nil)
-	if _, err := c.NewNetwork(badDriverName, "badnet1", "", ipamOpt); err == nil {
+	ipamOpt := NetworkOptionIpam(ipamapi.DefaultIPAM, "", []*IpamConf{&IpamConf{PreferredPool: "10.34.0.0/16", Gateway: "10.34.255.254"}}, nil, nil)
+	if _, err := c.NewNetwork(badDriverName, "badnet1", ipamOpt); err == nil {
 		t.Fatalf("bad network driver should have failed network creation")
 	}
 
-	gnw, err := c.NewNetwork("bridge", "goodnet1", "", ipamOpt)
+	gnw, err := c.NewNetwork("bridge", "goodnet1", ipamOpt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -450,7 +385,7 @@ func TestIpamReleaseOnNetDriverFailures(t *testing.T) {
 
 	// Now check whether ipam release works on endpoint creation failure
 	bd.failNetworkCreation = false
-	bnw, err := c.NewNetwork(badDriverName, "badnet2", "", ipamOpt)
+	bnw, err := c.NewNetwork(badDriverName, "badnet2", ipamOpt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -461,8 +396,8 @@ func TestIpamReleaseOnNetDriverFailures(t *testing.T) {
 	}
 
 	// Now create good bridge network with different gateway
-	ipamOpt2 := NetworkOptionIpam(ipamapi.DefaultIPAM, "", []*IpamConf{{PreferredPool: "10.34.0.0/16", Gateway: "10.34.255.253"}}, nil, nil)
-	gnw, err = c.NewNetwork("bridge", "goodnet2", "", ipamOpt2)
+	ipamOpt2 := NetworkOptionIpam(ipamapi.DefaultIPAM, "", []*IpamConf{&IpamConf{PreferredPool: "10.34.0.0/16", Gateway: "10.34.255.253"}}, nil, nil)
+	gnw, err = c.NewNetwork("bridge", "goodnet2", ipamOpt2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -486,13 +421,7 @@ type badDriver struct {
 	failNetworkCreation bool
 }
 
-var bd = badDriver{failNetworkCreation: true}
-
-func badDriverInit(reg driverapi.DriverCallback, opt map[string]interface{}) error {
-	return reg.RegisterDriver(badDriverName, &bd, driverapi.Capability{DataScope: datastore.LocalScope})
-}
-
-func (b *badDriver) CreateNetwork(nid string, options map[string]interface{}, nInfo driverapi.NetworkInfo, ipV4Data, ipV6Data []driverapi.IPAMData) error {
+func (b *badDriver) CreateNetwork(nid string, options map[string]interface{}, ipV4Data, ipV6Data []driverapi.IPAMData) error {
 	if b.failNetworkCreation {
 		return fmt.Errorf("I will not create any network")
 	}
@@ -516,29 +445,12 @@ func (b *badDriver) Join(nid, eid string, sboxKey string, jinfo driverapi.JoinIn
 func (b *badDriver) Leave(nid, eid string) error {
 	return nil
 }
-func (b *badDriver) DiscoverNew(dType discoverapi.DiscoveryType, data interface{}) error {
+func (b *badDriver) DiscoverNew(dType driverapi.DiscoveryType, data interface{}) error {
 	return nil
 }
-func (b *badDriver) DiscoverDelete(dType discoverapi.DiscoveryType, data interface{}) error {
+func (b *badDriver) DiscoverDelete(dType driverapi.DiscoveryType, data interface{}) error {
 	return nil
 }
 func (b *badDriver) Type() string {
 	return badDriverName
-}
-func (b *badDriver) ProgramExternalConnectivity(nid, eid string, options map[string]interface{}) error {
-	return nil
-}
-func (b *badDriver) RevokeExternalConnectivity(nid, eid string) error {
-	return nil
-}
-
-func (b *badDriver) NetworkAllocate(id string, option map[string]string, ipV4Data, ipV6Data []driverapi.IPAMData) (map[string]string, error) {
-	return nil, types.NotImplementedErrorf("not implemented")
-}
-
-func (b *badDriver) NetworkFree(id string) error {
-	return types.NotImplementedErrorf("not implemented")
-}
-
-func (b *badDriver) EventNotify(etype driverapi.EventType, nid, tableName, key string, value []byte) {
 }

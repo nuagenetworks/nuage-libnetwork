@@ -13,14 +13,8 @@ import (
 func TestSetupNewBridge(t *testing.T) {
 	defer testutils.SetupTestOSContext(t)()
 
-	nh, err := netlink.NewHandle()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer nh.Delete()
-
 	config := &networkConfiguration{BridgeName: DefaultBridgeName}
-	br := &bridgeInterface{nlh: nh}
+	br := &bridgeInterface{}
 
 	if err := setupDevice(config, br); err != nil {
 		t.Fatalf("Bridge creation failed: %v", err)
@@ -28,7 +22,7 @@ func TestSetupNewBridge(t *testing.T) {
 	if br.Link == nil {
 		t.Fatal("bridgeInterface link is nil (expected valid link)")
 	}
-	if _, err := nh.LinkByName(DefaultBridgeName); err != nil {
+	if _, err := netlink.LinkByName(DefaultBridgeName); err != nil {
 		t.Fatalf("Failed to retrieve bridge device: %v", err)
 	}
 	if br.Link.Attrs().Flags&net.FlagUp == net.FlagUp {
@@ -39,16 +33,10 @@ func TestSetupNewBridge(t *testing.T) {
 func TestSetupNewNonDefaultBridge(t *testing.T) {
 	defer testutils.SetupTestOSContext(t)()
 
-	nh, err := netlink.NewHandle()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer nh.Delete()
-
 	config := &networkConfiguration{BridgeName: "test0", DefaultBridge: true}
-	br := &bridgeInterface{nlh: nh}
+	br := &bridgeInterface{}
 
-	err = setupDevice(config, br)
+	err := setupDevice(config, br)
 	if err == nil {
 		t.Fatal("Expected bridge creation failure with \"non default name\", succeeded")
 	}
@@ -61,14 +49,8 @@ func TestSetupNewNonDefaultBridge(t *testing.T) {
 func TestSetupDeviceUp(t *testing.T) {
 	defer testutils.SetupTestOSContext(t)()
 
-	nh, err := netlink.NewHandle()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer nh.Delete()
-
 	config := &networkConfiguration{BridgeName: DefaultBridgeName}
-	br := &bridgeInterface{nlh: nh}
+	br := &bridgeInterface{}
 
 	if err := setupDevice(config, br); err != nil {
 		t.Fatalf("Bridge creation failed: %v", err)
@@ -77,7 +59,7 @@ func TestSetupDeviceUp(t *testing.T) {
 		t.Fatalf("Failed to up bridge device: %v", err)
 	}
 
-	lnk, _ := nh.LinkByName(DefaultBridgeName)
+	lnk, _ := netlink.LinkByName(DefaultBridgeName)
 	if lnk.Attrs().Flags&net.FlagUp != net.FlagUp {
 		t.Fatalf("bridgeInterface should be up")
 	}

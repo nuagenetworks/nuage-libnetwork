@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
 )
 
@@ -27,7 +26,9 @@ import (
 //   the docker daemon is not restarted and also running under systemd.
 //   Fixes https://github.com/docker/docker/issues/19728
 //
-func Trap(cleanup func()) {
+func Trap(cleanup func(), logger interface {
+	Info(args ...interface{})
+}) {
 	c := make(chan os.Signal, 1)
 	// we will handle INT, TERM, QUIT, SIGPIPE here
 	signals := []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGPIPE}
@@ -40,7 +41,7 @@ func Trap(cleanup func()) {
 			}
 
 			go func(sig os.Signal) {
-				logrus.Infof("Processing signal '%v'", sig)
+				logger.Info(fmt.Sprintf("Processing signal '%v'", sig))
 				switch sig {
 				case os.Interrupt, syscall.SIGTERM:
 					if atomic.LoadUint32(&interruptCount) < 3 {
@@ -54,11 +55,11 @@ func Trap(cleanup func()) {
 						}
 					} else {
 						// 3 SIGTERM/INT signals received; force exit without cleanup
-						logrus.Info("Forcing docker daemon shutdown without cleanup; 3 interrupts received")
+						logger.Info("Forcing docker daemon shutdown without cleanup; 3 interrupts received")
 					}
 				case syscall.SIGQUIT:
 					DumpStacks("")
-					logrus.Info("Forcing docker daemon shutdown without cleanup on SIGQUIT")
+					logger.Info("Forcing docker daemon shutdown without cleanup on SIGQUIT")
 				}
 				//for the SIGINT/TERM, and SIGQUIT non-clean shutdown case, exit with 128 + signal #
 				os.Exit(128 + int(sig.(syscall.Signal)))
@@ -83,15 +84,21 @@ func DumpStacks(dir string) (string, error) {
 		bufferLen *= 2
 	}
 	buf = buf[:stackSize]
-	path := filepath.Join(dir, fmt.Sprintf(stacksLogNameTemplate, strings.Replace(time.Now().Format(time.RFC3339), ":", "", -1)))
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to open file to write the goroutine stacks")
+	var f *os.File
+	if dir != "" {
+		path := filepath.Join(dir, fmt.Sprintf(stacksLogNameTemplate, strings.Replace(time.Now().Format(time.RFC3339), ":", "", -1)))
+		var err error
+		f, err = os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0666)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to open file to write the goroutine stacks")
+		}
+		defer f.Close()
+		defer f.Sync()
+	} else {
+		f = os.Stderr
 	}
-	defer f.Close()
 	if _, err := f.Write(buf); err != nil {
 		return "", errors.Wrap(err, "failed to write goroutine stacks")
 	}
-	f.Sync()
-	return path, nil
+	return f.Name(), nil
 }

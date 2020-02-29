@@ -9,8 +9,25 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/mount"
 )
+
+func TestGetAddress(t *testing.T) {
+	cases := map[string]string{
+		"addr=11.11.11.1":   "11.11.11.1",
+		" ":                 "",
+		"addr=":             "",
+		"addr=2001:db8::68": "2001:db8::68",
+	}
+	for name, success := range cases {
+		v := getAddress(name)
+		if v != success {
+			t.Errorf("Test case failed for %s actual: %s expected : %s", name, v, success)
+		}
+	}
+
+}
 
 func TestRemove(t *testing.T) {
 	// TODO Windows: Investigate why this test fails on Windows under CI
@@ -24,7 +41,7 @@ func TestRemove(t *testing.T) {
 	}
 	defer os.RemoveAll(rootDir)
 
-	r, err := New(rootDir, 0, 0)
+	r, err := New(rootDir, idtools.IDPair{UID: 0, GID: 0})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +83,7 @@ func TestInitializeWithVolumes(t *testing.T) {
 	}
 	defer os.RemoveAll(rootDir)
 
-	r, err := New(rootDir, 0, 0)
+	r, err := New(rootDir, idtools.IDPair{UID: 0, GID: 0})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +93,7 @@ func TestInitializeWithVolumes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r, err = New(rootDir, 0, 0)
+	r, err = New(rootDir, idtools.IDPair{UID: 0, GID: 0})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +115,7 @@ func TestCreate(t *testing.T) {
 	}
 	defer os.RemoveAll(rootDir)
 
-	r, err := New(rootDir, 0, 0)
+	r, err := New(rootDir, idtools.IDPair{UID: 0, GID: 0})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +152,7 @@ func TestCreate(t *testing.T) {
 		}
 	}
 
-	r, err = New(rootDir, 0, 0)
+	r, err = New(rootDir, idtools.IDPair{UID: 0, GID: 0})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,14 +184,13 @@ func TestCreateWithOpts(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip()
 	}
-
 	rootDir, err := ioutil.TempDir("", "local-volume-test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(rootDir)
 
-	r, err := New(rootDir, 0, 0)
+	r, err := New(rootDir, idtools.IDPair{UID: 0, GID: 0})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,7 +271,7 @@ func TestCreateWithOpts(t *testing.T) {
 		t.Fatal("expected mount to still be active")
 	}
 
-	r, err = New(rootDir, 0, 0)
+	r, err = New(rootDir, idtools.IDPair{UID: 0, GID: 0})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,7 +293,7 @@ func TestRealodNoOpts(t *testing.T) {
 	}
 	defer os.RemoveAll(rootDir)
 
-	r, err := New(rootDir, 0, 0)
+	r, err := New(rootDir, idtools.IDPair{UID: 0, GID: 0})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,7 +321,7 @@ func TestRealodNoOpts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r, err = New(rootDir, 0, 0)
+	r, err = New(rootDir, idtools.IDPair{UID: 0, GID: 0})
 	if err != nil {
 		t.Fatal(err)
 	}

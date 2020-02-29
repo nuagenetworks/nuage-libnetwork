@@ -68,7 +68,7 @@ the next appropriate stage:
 
  - Has DCO
  - Contains sufficient justification (e.g., usecases) for the proposed change
- - References the Github issue it fixes (if any) in the commit or the first Github comment
+ - References the GitHub issue it fixes (if any) in the commit or the first GitHub comment
 
 Possible transitions from this state:
 
@@ -181,7 +181,7 @@ Possible transitions from this state:
 After merging a pull request, the maintainer should consider applying one or multiple impact labels
 to ease future classification:
 
- * `impact/api` signifies the patch impacted the remote API
+ * `impact/api` signifies the patch impacted the Engine API
  * `impact/changelog` signifies the change is significant enough to make it in the changelog
  * `impact/cli` signifies the patch impacted a CLI command
  * `impact/dockerfile` signifies the patch impacted the Dockerfile syntax

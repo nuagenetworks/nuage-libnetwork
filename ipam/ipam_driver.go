@@ -20,13 +20,13 @@ package ipam
 import (
 	"encoding/json"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/plugins"
 	"github.com/docker/go-plugins-helpers/ipam"
 	"github.com/docker/libnetwork/ipamapi"
 	nuageApi "github.com/nuagenetworks/nuage-libnetwork/api"
 	nuageConfig "github.com/nuagenetworks/nuage-libnetwork/config"
 	"github.com/nuagenetworks/nuage-libnetwork/utils"
+	log "github.com/sirupsen/logrus"
 	"net"
 	"net/http"
 	"strings"
@@ -144,7 +144,7 @@ func (nuageipam *NuageIPAMDriver) RequestPool(w http.ResponseWriter, req *http.R
 		return
 	}
 
-	poolID := nuageConfig.MD5Hash(networkParams) + "-" + utils.GenerateID(true)[:10]
+	poolID := nuageConfig.MD5Hash(networkParams) + "-" + utils.GenerateID()[:10]
 	resp := &ipam.RequestPoolResponse{
 		PoolID: poolID,
 		Pool:   r.Pool,

@@ -7,7 +7,6 @@ package api
 import (
 	"net"
 
-	"github.com/docker/libnetwork/discoverapi"
 	"github.com/docker/libnetwork/driverapi"
 )
 
@@ -25,38 +24,6 @@ func (r *Response) GetError() string {
 type GetCapabilityResponse struct {
 	Response
 	Scope string
-}
-
-// AllocateNetworkRequest requests allocation of new network by manager
-type AllocateNetworkRequest struct {
-	// A network ID that remote plugins are expected to store for future
-	// reference.
-	NetworkID string
-
-	// A free form map->object interface for communication of options.
-	Options map[string]string
-
-	// IPAMData contains the address pool information for this network
-	IPv4Data, IPv6Data []driverapi.IPAMData
-}
-
-// AllocateNetworkResponse is the response to the AllocateNetworkRequest.
-type AllocateNetworkResponse struct {
-	Response
-	// A free form plugin specific string->string object to be sent in
-	// CreateNetworkRequest call in the libnetwork agents
-	Options map[string]string
-}
-
-// FreeNetworkRequest is the request to free allocated network in the manager
-type FreeNetworkRequest struct {
-	// The ID of the network to be freed.
-	NetworkID string
-}
-
-// FreeNetworkResponse is the response to a request for freeing a network.
-type FreeNetworkResponse struct {
-	Response
 }
 
 // CreateNetworkRequest requests a new network.
@@ -185,32 +152,9 @@ type LeaveResponse struct {
 	Response
 }
 
-// ProgramExternalConnectivityRequest describes the API for programming the external connectivity for the given endpoint.
-type ProgramExternalConnectivityRequest struct {
-	NetworkID  string
-	EndpointID string
-	Options    map[string]interface{}
-}
-
-// ProgramExternalConnectivityResponse is the answer to ProgramExternalConnectivityRequest.
-type ProgramExternalConnectivityResponse struct {
-	Response
-}
-
-// RevokeExternalConnectivityRequest describes the API for revoking the external connectivity for the given endpoint.
-type RevokeExternalConnectivityRequest struct {
-	NetworkID  string
-	EndpointID string
-}
-
-// RevokeExternalConnectivityResponse is the answer to RevokeExternalConnectivityRequest.
-type RevokeExternalConnectivityResponse struct {
-	Response
-}
-
 // DiscoveryNotification represents a discovery notification
 type DiscoveryNotification struct {
-	DiscoveryType discoverapi.DiscoveryType
+	DiscoveryType driverapi.DiscoveryType
 	DiscoveryData interface{}
 }
 

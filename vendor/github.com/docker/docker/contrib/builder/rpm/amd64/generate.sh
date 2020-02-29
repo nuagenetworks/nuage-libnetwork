@@ -1,11 +1,11 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 # usage: ./generate.sh [versions]
 #    ie: ./generate.sh
 #        to update all Dockerfiles in this directory
-#    or: ./generate.sh
-#        to only update fedora-23/Dockerfile
+#    or: ./generate.sh centos-7
+#        to only update centos-7/Dockerfile
 #    or: ./generate.sh fedora-newversion
 #        to create a new folder and a Dockerfile within it
 
@@ -22,6 +22,7 @@ for version in "${versions[@]}"; do
 	suite="${version##*-}"
 	from="${distro}:${suite}"
 	installer=yum
+
 	if [[ "$distro" == "fedora" ]]; then
 		installer=dnf
 	fi
@@ -41,7 +42,7 @@ for version in "${versions[@]}"; do
 
 	echo >> "$version/Dockerfile"
 
-	extraBuildTags='pkcs11'
+	extraBuildTags=
 	runcBuildTags=
 
 	case "$from" in
@@ -52,11 +53,14 @@ for version in "${versions[@]}"; do
 			echo "RUN yum install -y kernel-uek-devel-4.1.12-32.el6uek"  >> "$version/Dockerfile"
 			echo >> "$version/Dockerfile"
 			;;
+		fedora:*)
+			echo "RUN ${installer} -y upgrade" >> "$version/Dockerfile"
+			;;
 		*) ;;
 	esac
 
 	case "$from" in
-		centos:*)
+		centos:*|amazonlinux:latest)
 			# get "Development Tools" packages dependencies
 			echo 'RUN yum groupinstall -y "Development Tools"' >> "$version/Dockerfile"
 
@@ -74,28 +78,27 @@ for version in "${versions[@]}"; do
 			echo 'RUN zypper --non-interactive install ca-certificates* curl gzip rpm-build' >> "$version/Dockerfile"
 			;;
 		photon:*)
-			echo "RUN ${installer} install -y wget curl ca-certificates gzip make rpm-build sed gcc linux-api-headers glibc-devel binutils libseccomp libltdl-devel elfutils" >> "$version/Dockerfile"
+			echo "RUN ${installer} install -y wget curl ca-certificates gzip make rpm-build sed gcc linux-api-headers glibc-devel binutils libseccomp elfutils" >> "$version/Dockerfile"
 			;;
 		*)
 			echo "RUN ${installer} install -y @development-tools fedora-packager" >> "$version/Dockerfile"
 			;;
 	esac
 
-	# this list is sorted alphabetically; please keep it that way
 	packages=(
 		btrfs-progs-devel # for "btrfs/ioctl.h" (and "version.h" if possible)
 		device-mapper-devel # for "libdevmapper.h"
 		glibc-static
 		libseccomp-devel # for "seccomp.h" & "libseccomp.so"
 		libselinux-devel # for "libselinux.so"
-		libtool-ltdl-devel # for pkcs11 "ltdl.h"
 		pkgconfig # for the pkg-config command
 		selinux-policy
 		selinux-policy-devel
-		sqlite-devel # for "sqlite3.h"
 		systemd-devel # for "sd-journal.h" and libraries
 		tar # older versions of dev-tools do not have tar
 		git # required for containerd and runc clone
+		cmake # tini build
+		vim-common # tini build
 	)
 
 	case "$from" in
@@ -106,7 +109,7 @@ for version in "${versions[@]}"; do
 	esac
 
 	case "$from" in
-		oraclelinux:6)
+		oraclelinux:6|amazonlinux:latest)
 			# doesn't use systemd, doesn't have a devel package for it
 			packages=( "${packages[@]/systemd-devel}" )
 			;;
@@ -128,6 +131,7 @@ for version in "${versions[@]}"; do
 		opensuse:*)
 			packages=( "${packages[@]/btrfs-progs-devel/libbtrfs-devel}" )
 			packages=( "${packages[@]/pkgconfig/pkg-config}" )
+			packages=( "${packages[@]/vim-common/vim}" )
 			if [[ "$from" == "opensuse:13."* ]]; then
 				packages+=( systemd-rpm-macros )
 			fi

@@ -5,17 +5,8 @@ dockerargs = --privileged -v $(shell pwd):/go/src/github.com/docker/libnetwork -
 container_env = -e "INSIDECONTAINER=-incontainer=true"
 docker = docker run --rm -it ${dockerargs} $$EXTRA_ARGS ${container_env} ${build_image}
 ciargs = -e CIRCLECI -e "COVERALLS_TOKEN=$$COVERALLS_TOKEN" -e "INSIDECONTAINER=-incontainer=true"
-cidocker = docker run ${dockerargs} ${ciargs} $$EXTRA_ARGS ${container_env} ${build_image}
-CROSS_PLATFORMS = linux/amd64 linux/386 linux/arm windows/amd64
-export PATH := $(CURDIR)/bin:$(PATH)
-hostOS = ${shell go env GOHOSTOS}
-ifeq (${hostOS}, solaris)
-	gnufind=gfind
-	gnutail=gtail
-else
-	gnufind=find
-	gnutail=tail
-endif
+cidocker = docker run ${dockerargs} ${ciargs} ${container_env} ${build_image}
+CROSS_PLATFORMS = linux/amd64 linux/386 linux/arm windows/amd64 windows/386
 
 all: ${build_image}.created build check integration-tests clean
 
@@ -32,12 +23,11 @@ build: ${build_image}.created
 
 build-local:
 	@mkdir -p "bin"
-	$(shell which godep) go build -tags experimental -o "bin/dnet" ./cmd/dnet
-	$(shell which godep) go build -o "bin/docker-proxy" ./cmd/proxy
+	$(shell which godep) go build -o "bin/dnet" ./cmd/dnet
 
 clean:
 	@if [ -d bin ]; then \
-		echo "Removing dnet and proxy binaries"; \
+		echo "Removing dnet binaries"; \
 		rm -rf bin; \
 	fi
 
@@ -51,68 +41,34 @@ cross: ${build_image}.created
 
 cross-local:
 	$(shell which godep) go build -o "bin/dnet-$$GOOS-$$GOARCH" ./cmd/dnet
-	$(shell which godep) go build -o "bin/docker-proxy-$$GOOS-$$GOARCH" ./cmd/proxy
 
 check: ${build_image}.created
 	@${docker} ./wrapmake.sh check-local
 
 check-code:
 	@echo "Checking code... "
-	test -z "$$(golint ./... | grep -v .pb.go: | tee /dev/stderr)"
+	test -z "$$(golint ./... | tee /dev/stderr)"
 	go vet ./...
 	@echo "Done checking code"
 
 check-format:
 	@echo "Checking format... "
-	test -z "$$(gofmt -s -l . | grep -v Godeps/_workspace/src/ | tee /dev/stderr)"
+	test -z "$$(goimports -l . | grep -v Godeps/_workspace/src/ | tee /dev/stderr)"
 	@echo "Done checking format"
 
 run-tests:
 	@echo "Running tests... "
 	@echo "mode: count" > coverage.coverprofile
-	@for dir in $$( ${gnufind} . -maxdepth 10 -not -path './.git*' -not -path '*/_*' -type d); do \
-	    if [ ${hostOS} == solaris ]; then \
-	        case "$$dir" in \
-		    "./cmd/dnet" ) \
-		    ;& \
-		    "./cmd/ovrouter" ) \
-		    ;& \
-		    "./ns" ) \
-		    ;& \
-		    "./iptables" ) \
-		    ;& \
-		    "./ipvs" ) \
-		    ;& \
-		    "./drivers/bridge" ) \
-		    ;& \
-		    "./drivers/host" ) \
-		    ;& \
-		    "./drivers/ipvlan" ) \
-		    ;& \
-		    "./drivers/macvlan" ) \
-		    ;& \
-		    "./drivers/overlay" ) \
-		    ;& \
-		    "./drivers/remote" ) \
-		    ;& \
-		    "./drivers/windows" ) \
-			echo "Skipping $$dir on solaris host... "; \
-			continue; \
-			;; \
-		    * )\
-			echo "Entering $$dir ... "; \
-			;; \
-	        esac; \
-	    fi; \
+	@for dir in $$(find . -maxdepth 10 -not -path './.git*' -not -path '*/_*' -type d); do \
 	    if ls $$dir/*.go &> /dev/null; then \
 		pushd . &> /dev/null ; \
 		cd $$dir ; \
-		$(shell which godep) go test ${INSIDECONTAINER} -test.parallel 5 -test.v -covermode=count -coverprofile=./profile.tmp ; \
+		$(shell which godep) go test ${INSIDECONTAINER} -test.parallel 3 -test.v -covermode=count -coverprofile=./profile.tmp ; \
 		ret=$$? ;\
 		if [ $$ret -ne 0 ]; then exit $$ret; fi ;\
 		popd &> /dev/null; \
 		if [ -f $$dir/profile.tmp ]; then \
-			cat $$dir/profile.tmp | ${gnutail} -n +2 >> coverage.coverprofile ; \
+			cat $$dir/profile.tmp | tail -n +2 >> coverage.coverprofile ; \
 				rm $$dir/profile.tmp ; \
 	    fi ; \
 	fi ; \
@@ -146,4 +102,4 @@ circle-ci-check: ${build_image}.created
 circle-ci-build: ${build_image}.created
 	@${cidocker} make build-local
 
-circle-ci: circle-ci-build circle-ci-check circle-ci-cross integration-tests
+circle-ci: circle-ci-check circle-ci-build integration-tests

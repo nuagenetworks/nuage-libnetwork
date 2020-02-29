@@ -30,7 +30,7 @@ func TestDiff(t *testing.T) {
 	updated = mapset.NewSetFromSlice([]interface{}{addedIP})
 	added, removed = diff(existing, updated)
 	if len(removed) != 2 {
-		t.Fatalf("Diff failed for a remove update. Expecting 2 element, but got %d elements", len(removed))
+		t.Fatalf("Diff failed for an remove update. Expecting 2 element, but got %d elements", len(removed))
 	}
 	if len(added) != 1 {
 		t.Fatalf("Diff failed for add use-case. Expecting 1 element, but got %d elements", len(added))
@@ -40,20 +40,20 @@ func TestDiff(t *testing.T) {
 func TestAddedCallback(t *testing.T) {
 	hd := hostDiscovery{}
 	hd.nodes = mapset.NewSetFromSlice([]interface{}{"1.1.1.1"})
-	update := []*discovery.Entry{{Host: "1.1.1.1", Port: "0"}, {Host: "2.2.2.2", Port: "0"}}
+	update := []*discovery.Entry{&discovery.Entry{Host: "1.1.1.1", Port: "0"}, &discovery.Entry{Host: "2.2.2.2", Port: "0"}}
 
 	added := false
 	removed := false
 	hd.processCallback(update, func() {}, func(hosts []net.IP) { added = true }, func(hosts []net.IP) { removed = true })
 	if !added {
-		t.Fatalf("Expecting an Added callback notification. But none received")
+		t.Fatalf("Expecting a Added callback notification. But none received")
 	}
 }
 
 func TestRemovedCallback(t *testing.T) {
 	hd := hostDiscovery{}
 	hd.nodes = mapset.NewSetFromSlice([]interface{}{"1.1.1.1", "2.2.2.2"})
-	update := []*discovery.Entry{{Host: "1.1.1.1", Port: "0"}}
+	update := []*discovery.Entry{&discovery.Entry{Host: "1.1.1.1", Port: "0"}}
 
 	added := false
 	removed := false
@@ -66,7 +66,7 @@ func TestRemovedCallback(t *testing.T) {
 func TestNoCallback(t *testing.T) {
 	hd := hostDiscovery{}
 	hd.nodes = mapset.NewSetFromSlice([]interface{}{"1.1.1.1", "2.2.2.2"})
-	update := []*discovery.Entry{{Host: "1.1.1.1", Port: "0"}, {Host: "2.2.2.2", Port: "0"}}
+	update := []*discovery.Entry{&discovery.Entry{Host: "1.1.1.1", Port: "0"}, &discovery.Entry{Host: "2.2.2.2", Port: "0"}}
 
 	added := false
 	removed := false

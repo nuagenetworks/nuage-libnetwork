@@ -19,7 +19,7 @@ import (
 // ContainerStats writes information about the container to the stream
 // given in the config object.
 func (daemon *Daemon) ContainerStats(ctx context.Context, prefixOrName string, config *backend.ContainerStatsConfig) error {
-	// Remote API version (used for backwards compatibility)
+	// Engine API version (used for backwards compatibility)
 	apiVersion := config.Version
 
 	container, err := daemon.GetContainer(prefixOrName)
@@ -27,9 +27,11 @@ func (daemon *Daemon) ContainerStats(ctx context.Context, prefixOrName string, c
 		return err
 	}
 
-	// If the container is not running and requires no stream, return an empty stats.
-	if !container.IsRunning() && !config.Stream {
-		return json.NewEncoder(config.OutStream).Encode(&types.Stats{})
+	// If the container is either not running or restarting and requires no stream, return an empty stats.
+	if (!container.IsRunning() || container.IsRestarting()) && !config.Stream {
+		return json.NewEncoder(config.OutStream).Encode(&types.StatsJSON{
+			Name: container.Name,
+			ID:   container.ID})
 	}
 
 	outStream := config.OutStream
@@ -44,6 +46,8 @@ func (daemon *Daemon) ContainerStats(ctx context.Context, prefixOrName string, c
 	var preRead time.Time
 	getStatJSON := func(v interface{}) *types.StatsJSON {
 		ss := v.(types.StatsJSON)
+		ss.Name = container.Name
+		ss.ID = container.ID
 		ss.PreCPUStats = preCPUStats
 		ss.PreRead = preRead
 		preCPUStats = ss.CPUStats
@@ -127,11 +131,11 @@ func (daemon *Daemon) ContainerStats(ctx context.Context, prefixOrName string, c
 }
 
 func (daemon *Daemon) subscribeToContainerStats(c *container.Container) chan interface{} {
-	return daemon.statsCollector.collect(c)
+	return daemon.statsCollector.Collect(c)
 }
 
 func (daemon *Daemon) unsubscribeToContainerStats(c *container.Container, ch chan interface{}) {
-	daemon.statsCollector.unsubscribe(c, ch)
+	daemon.statsCollector.Unsubscribe(c, ch)
 }
 
 // GetContainerStats collects all the stats published by a container

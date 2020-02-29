@@ -24,15 +24,16 @@ func IsShortID(id string) bool {
 // TruncateID returns a shorthand version of a string identifier for convenience.
 // A collision with other shorthands is very unlikely, but possible.
 // In case of a collision a lookup with TruncIndex.Get() will fail, and the caller
-// will need to use a longer prefix, or the full-length Id.
+// will need to use a langer prefix, or the full-length Id.
 func TruncateID(id string) string {
 	if i := strings.IndexRune(id, ':'); i >= 0 {
 		id = id[i+1:]
 	}
-	if len(id) > shortLen {
-		id = id[:shortLen]
+	trimTo := shortLen
+	if len(id) < shortLen {
+		trimTo = len(id)
 	}
-	return id
+	return id[:trimTo]
 }
 
 func generateID(crypto bool) string {
@@ -56,9 +57,10 @@ func generateID(crypto bool) string {
 	}
 }
 
-// GenerateRandomID returns a unique id.
+// GenerateRandomID returns an unique id.
 func GenerateRandomID() string {
 	return generateID(true)
+
 }
 
 // GenerateNonCryptoID generates unique id without using cryptographically

@@ -81,28 +81,6 @@ func TestBuildHostname(t *testing.T) {
 	}
 }
 
-func TestBuildHostnameFQDN(t *testing.T) {
-	file, err := ioutil.TempFile("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(file.Name())
-
-	err = Build(file.Name(), "10.11.12.13", "testhostname.testdomainname.com", "", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	content, err := ioutil.ReadFile(file.Name())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if expected := "10.11.12.13\ttesthostname.testdomainname.com testhostname\n"; !bytes.Contains(content, []byte(expected)) {
-		t.Fatalf("Expected to find '%s' got '%s'", expected, content)
-	}
-}
-
 func TestBuildNoIP(t *testing.T) {
 	file, err := ioutil.TempFile("", "")
 	if err != nil {
@@ -174,15 +152,15 @@ func TestUpdateIgnoresPrefixedHostname(t *testing.T) {
 	defer os.Remove(file.Name())
 
 	if err := Build(file.Name(), "10.11.12.13", "testhostname", "testdomainname", []Record{
-		{
+		Record{
 			Hosts: "prefix",
 			IP:    "2.2.2.2",
 		},
-		{
+		Record{
 			Hosts: "prefixAndMore",
 			IP:    "3.3.3.3",
 		},
-		{
+		Record{
 			Hosts: "unaffectedHost",
 			IP:    "4.4.4.4",
 		},
@@ -231,11 +209,11 @@ func TestDeleteIgnoresPrefixedHostname(t *testing.T) {
 	}
 
 	if err := Add(file.Name(), []Record{
-		{
+		Record{
 			Hosts: "prefix",
 			IP:    "1.1.1.1",
 		},
-		{
+		Record{
 			Hosts: "prefixAndMore",
 			IP:    "2.2.2.2",
 		},
@@ -244,7 +222,7 @@ func TestDeleteIgnoresPrefixedHostname(t *testing.T) {
 	}
 
 	if err := Delete(file.Name(), []Record{
-		{
+		Record{
 			Hosts: "prefix",
 			IP:    "1.1.1.1",
 		},
@@ -296,7 +274,7 @@ func TestAdd(t *testing.T) {
 	}
 
 	if err := Add(file.Name(), []Record{
-		{
+		Record{
 			Hosts: "testhostname",
 			IP:    "2.2.2.2",
 		},
@@ -331,29 +309,6 @@ func TestDeleteEmpty(t *testing.T) {
 	}
 }
 
-func TestDeleteNewline(t *testing.T) {
-	file, err := ioutil.TempFile("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(file.Name())
-
-	b := []byte("\n")
-	if _, err := file.Write(b); err != nil {
-		t.Fatal(err)
-	}
-
-	rec := []Record{
-		{
-			Hosts: "prefix",
-			IP:    "2.2.2.2",
-		},
-	}
-	if err := Delete(file.Name(), rec); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestDelete(t *testing.T) {
 	file, err := ioutil.TempFile("", "")
 	if err != nil {
@@ -367,15 +322,15 @@ func TestDelete(t *testing.T) {
 	}
 
 	if err := Add(file.Name(), []Record{
-		{
+		Record{
 			Hosts: "testhostname1",
 			IP:    "1.1.1.1",
 		},
-		{
+		Record{
 			Hosts: "testhostname2",
 			IP:    "2.2.2.2",
 		},
-		{
+		Record{
 			Hosts: "testhostname3",
 			IP:    "3.3.3.3",
 		},
@@ -384,11 +339,11 @@ func TestDelete(t *testing.T) {
 	}
 
 	if err := Delete(file.Name(), []Record{
-		{
+		Record{
 			Hosts: "testhostname1",
 			IP:    "1.1.1.1",
 		},
-		{
+		Record{
 			Hosts: "testhostname3",
 			IP:    "3.3.3.3",
 		},
@@ -423,7 +378,7 @@ func TestConcurrentWrites(t *testing.T) {
 	}
 
 	if err := Add(file.Name(), []Record{
-		{
+		Record{
 			Hosts: "inithostname",
 			IP:    "172.17.0.1",
 		},
@@ -438,7 +393,7 @@ func TestConcurrentWrites(t *testing.T) {
 			defer wg.Done()
 
 			rec := []Record{
-				{
+				Record{
 					IP:    fmt.Sprintf("%d.%d.%d.%d", i, i, i, i),
 					Hosts: fmt.Sprintf("testhostname%d", i),
 				},

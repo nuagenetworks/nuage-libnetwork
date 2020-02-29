@@ -7,7 +7,6 @@ import (
 	"github.com/docker/libnetwork/iptables"
 	"github.com/docker/libnetwork/portmapper"
 	"github.com/docker/libnetwork/testutils"
-	"github.com/vishvananda/netlink"
 )
 
 const (
@@ -17,13 +16,7 @@ const (
 func TestProgramIPTable(t *testing.T) {
 	// Create a test bridge with a basic bridge configuration (name + IPv4).
 	defer testutils.SetupTestOSContext(t)()
-
-	nh, err := netlink.NewHandle()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	createTestBridge(getBasicTestConfig(), &bridgeInterface{nlh: nh}, t)
+	createTestBridge(getBasicTestConfig(), &bridgeInterface{}, t)
 
 	// Store various iptables chain rules we care for.
 	rules := []struct {
@@ -48,11 +41,6 @@ func TestSetupIPChains(t *testing.T) {
 	// Create a test bridge with a basic bridge configuration (name + IPv4).
 	defer testutils.SetupTestOSContext(t)()
 
-	nh, err := netlink.NewHandle()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	driverconfig := &configuration{
 		EnableIPTables: true,
 	}
@@ -62,7 +50,7 @@ func TestSetupIPChains(t *testing.T) {
 	assertChainConfig(d, t)
 
 	config := getBasicTestConfig()
-	br := &bridgeInterface{nlh: nh}
+	br := &bridgeInterface{}
 	createTestBridge(config, br, t)
 
 	assertBridgeConfig(config, br, d, t)
@@ -124,7 +112,7 @@ func assertChainConfig(d *driver, t *testing.T) {
 
 // Assert function which pushes chains based on bridge config parameters.
 func assertBridgeConfig(config *networkConfiguration, br *bridgeInterface, d *driver, t *testing.T) {
-	nw := bridgeNetwork{portMapper: portmapper.New(""),
+	nw := bridgeNetwork{portMapper: portmapper.New(),
 		config: config}
 	nw.driver = d
 

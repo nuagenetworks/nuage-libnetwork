@@ -1,15 +1,14 @@
-// +build windows
-
 package sysinfo
 
 import (
 	"runtime"
-	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 var (
-	kernel32               = syscall.NewLazyDLL("kernel32.dll")
+	kernel32               = windows.NewLazySystemDLL("kernel32.dll")
 	getCurrentProcess      = kernel32.NewProc("GetCurrentProcess")
 	getProcessAffinityMask = kernel32.NewProc("GetProcessAffinityMask")
 )

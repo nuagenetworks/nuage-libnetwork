@@ -6,14 +6,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 )
 
 var (
 	// Backends is a global map of discovery backends indexed by their
 	// associated scheme.
-	backends = make(map[string]Backend)
+	backends map[string]Backend
 )
+
+func init() {
+	backends = make(map[string]Backend)
+}
 
 // Register makes a discovery backend available by the provided scheme.
 // If Register is called twice with the same scheme an error is returned.
@@ -21,7 +25,7 @@ func Register(scheme string, d Backend) error {
 	if _, exists := backends[scheme]; exists {
 		return fmt.Errorf("scheme already registered %s", scheme)
 	}
-	logrus.WithField("name", scheme).Debugf("Registering discovery service")
+	log.WithField("name", scheme).Debug("Registering discovery service")
 	backends[scheme] = d
 	return nil
 }
@@ -38,7 +42,7 @@ func parse(rawurl string) (string, string) {
 
 // ParseAdvertise parses the --cluster-advertise daemon config which accepts
 // <ip-address>:<port> or <interface-name>:<port>
-func ParseAdvertise(advertise string) (string, error) {
+func ParseAdvertise(store, advertise string) (string, error) {
 	var (
 		iface *net.Interface
 		addrs []net.Addr
@@ -57,7 +61,7 @@ func ParseAdvertise(advertise string) (string, error) {
 		return advertise, nil
 	}
 
-	// If advertise is a valid interface name, get the valid IPv4 address and use it to advertise
+	// If advertise is a valid interface name, get the valid ipv4 address and use it to advertise
 	ifaceName := addr
 	iface, err = net.InterfaceByName(ifaceName)
 	if err != nil {
@@ -89,7 +93,7 @@ func ParseAdvertise(advertise string) (string, error) {
 		return "", fmt.Errorf("couldnt find a valid ip-address in interface %s", advertise)
 	}
 
-	addr = net.JoinHostPort(addr, port)
+	addr = fmt.Sprintf("%s:%s", addr, port)
 	return addr, nil
 }
 
@@ -98,7 +102,7 @@ func ParseAdvertise(advertise string) (string, error) {
 func New(rawurl string, heartbeat time.Duration, ttl time.Duration, clusterOpts map[string]string) (Backend, error) {
 	scheme, uri := parse(rawurl)
 	if backend, exists := backends[scheme]; exists {
-		logrus.WithFields(logrus.Fields{"name": scheme, "uri": uri}).Debugf("Initializing discovery service")
+		log.WithFields(log.Fields{"name": scheme, "uri": uri}).Debug("Initializing discovery service")
 		err := backend.Initialize(uri, heartbeat, ttl, clusterOpts)
 		return backend, err
 	}

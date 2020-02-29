@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/docker/libkv/store"
-	"github.com/docker/libkv/store/boltdb"
 	"github.com/docker/libnetwork/datastore"
 	_ "github.com/docker/libnetwork/testutils"
 )
@@ -16,10 +15,6 @@ import (
 const (
 	defaultPrefix = "/tmp/libnetwork/test/bitseq"
 )
-
-func init() {
-	boltdb.Register()
-}
 
 func randomLocalStore() (datastore.DataStore, error) {
 	tmp, err := ioutil.TempFile("", "libnetwork-")
@@ -639,6 +634,10 @@ func TestSetInRange(t *testing.T) {
 		t.Fatalf("Expected failure. Got success with ordinal:%d", o)
 	}
 
+	if o, err := hnd.SetAnyInRange(5, 5); err == nil {
+		t.Fatalf("Expected failure. Got success with ordinal:%d", o)
+	}
+
 	if o, err := hnd.SetAnyInRange(0, numBits); err == nil {
 		t.Fatalf("Expected failure. Got success with ordinal:%d", o)
 	}
@@ -686,11 +685,6 @@ func TestSetInRange(t *testing.T) {
 
 	if _, err := hnd.SetAnyInRange(0, numBits-1); err != nil {
 		t.Fatalf("Unexpected failure: %v", err)
-	}
-
-	// set one bit using the set range with 1 bit size range
-	if _, err := hnd.SetAnyInRange(uint64(163*blockLen-1), uint64(163*blockLen-1)); err != nil {
-		t.Fatal(err)
 	}
 
 	// create a non multiple of 32 mask
@@ -1026,7 +1020,7 @@ func TestIsCorrupted(t *testing.T) {
 	// address reservation: last bit). This will allow an application using bitseq that runs a consistency
 	// check to detect and replace the 1.9.0/1 old vulnerable handle with the new one.
 	input := []*Handle{
-		{
+		&Handle{
 			id:         "LocalDefault/172.17.0.0/16",
 			bits:       65536,
 			unselected: 65412,
@@ -1061,7 +1055,7 @@ func TestIsCorrupted(t *testing.T) {
 				},
 			},
 		},
-		{
+		&Handle{
 			id:         "LocalDefault/172.17.0.0/16",
 			bits:       65536,
 			unselected: 65319,
@@ -1094,7 +1088,7 @@ func TestIsCorrupted(t *testing.T) {
 				},
 			},
 		},
-		{
+		&Handle{
 			id:         "LocalDefault/172.17.0.0/16",
 			bits:       65536,
 			unselected: 65456,

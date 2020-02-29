@@ -1,17 +1,17 @@
 package graphdriver
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/vbatts/tar-split/tar/storage"
 
 	"github.com/docker/docker/pkg/archive"
+	"github.com/docker/docker/pkg/containerfs"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/plugingetter"
 )
@@ -27,14 +27,14 @@ const (
 var (
 	// All registered drivers
 	drivers map[string]InitFunc
-
-	// ErrNotSupported returned when driver is not supported.
-	ErrNotSupported = errors.New("driver not supported")
-	// ErrPrerequisites retuned when driver does not meet prerequisites.
-	ErrPrerequisites = errors.New("prerequisites for driver not satisfied (wrong filesystem?)")
-	// ErrIncompatibleFS returned when file system is not supported.
-	ErrIncompatibleFS = fmt.Errorf("backing file system is unsupported for this graph driver")
 )
+
+//CreateOpts contains optional arguments for Create() and CreateReadWrite()
+// methods.
+type CreateOpts struct {
+	MountLabel string
+	StorageOpt map[string]string
+}
 
 // InitFunc initializes the storage driver.
 type InitFunc func(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (Driver, error)
@@ -49,17 +49,19 @@ type ProtoDriver interface {
 	// String returns a string representation of this driver.
 	String() string
 	// CreateReadWrite creates a new, empty filesystem layer that is ready
-	// to be used as the storage for a container.
-	CreateReadWrite(id, parent, mountLabel string, storageOpt map[string]string) error
+	// to be used as the storage for a container. Additional options can
+	// be passed in opts. parent may be "" and opts may be nil.
+	CreateReadWrite(id, parent string, opts *CreateOpts) error
 	// Create creates a new, empty, filesystem layer with the
-	// specified id and parent and mountLabel. Parent and mountLabel may be "".
-	Create(id, parent, mountLabel string, storageOpt map[string]string) error
+	// specified id and parent and options passed in opts. Parent
+	// may be "" and opts may be nil.
+	Create(id, parent string, opts *CreateOpts) error
 	// Remove attempts to remove the filesystem layer with this id.
 	Remove(id string) error
 	// Get returns the mountpoint for the layered filesystem referred
 	// to by this id. You can optionally specify a mountLabel or "".
 	// Returns the absolute path to the mounted layered filesystem.
-	Get(id, mountLabel string) (dir string, err error)
+	Get(id, mountLabel string) (fs containerfs.ContainerFS, err error)
 	// Put releases the system resources for the specified id,
 	// e.g, unmounting layered filesystem.
 	Put(id string) error
@@ -103,6 +105,23 @@ type Driver interface {
 	DiffDriver
 }
 
+// Capabilities defines a list of capabilities a driver may implement.
+// These capabilities are not required; however, they do determine how a
+// graphdriver can be used.
+type Capabilities struct {
+	// Flags that this driver is capable of reproducing exactly equivalent
+	// diffs for read-only layers. If set, clients can rely on the driver
+	// for consistent tar streams, and avoid extra processing to account
+	// for potential differences (eg: the layer store's use of tar-split).
+	ReproducesExactDiffs bool
+}
+
+// CapabilityDriver is the interface for layered file system drivers that
+// can report on their Capabilities.
+type CapabilityDriver interface {
+	Capabilities() Capabilities
+}
+
 // DiffGetterDriver is the interface for layered file system drivers that
 // provide a specialized function for getting file contents for tar-split.
 type DiffGetterDriver interface {
@@ -141,14 +160,16 @@ func Register(name string, initFunc InitFunc) error {
 }
 
 // GetDriver initializes and returns the registered driver
-func GetDriver(name, home string, options []string, uidMaps, gidMaps []idtools.IDMap, pg plugingetter.PluginGetter) (Driver, error) {
+func GetDriver(name string, pg plugingetter.PluginGetter, config Options) (Driver, error) {
 	if initFunc, exists := drivers[name]; exists {
-		return initFunc(filepath.Join(home, name), options, uidMaps, gidMaps)
+		return initFunc(filepath.Join(config.Root, name), config.DriverOptions, config.UIDMaps, config.GIDMaps)
 	}
-	if pluginDriver, err := lookupPlugin(name, home, options, pg); err == nil {
+
+	pluginDriver, err := lookupPlugin(name, pg, config)
+	if err == nil {
 		return pluginDriver, nil
 	}
-	logrus.Errorf("Failed to GetDriver graph %s %s", name, home)
+	logrus.WithError(err).WithField("driver", name).WithField("home-dir", config.Root).Error("Failed to GetDriver graph")
 	return nil, ErrNotSupported
 }
 
@@ -161,16 +182,27 @@ func getBuiltinDriver(name, home string, options []string, uidMaps, gidMaps []id
 	return nil, ErrNotSupported
 }
 
+// Options is used to initialize a graphdriver
+type Options struct {
+	Root                string
+	DriverOptions       []string
+	UIDMaps             []idtools.IDMap
+	GIDMaps             []idtools.IDMap
+	ExperimentalEnabled bool
+}
+
 // New creates the driver and initializes it at the specified root.
-func New(root, name string, options []string, uidMaps, gidMaps []idtools.IDMap, pg plugingetter.PluginGetter) (Driver, error) {
+func New(name string, pg plugingetter.PluginGetter, config Options) (Driver, error) {
 	if name != "" {
 		logrus.Debugf("[graphdriver] trying provided driver: %s", name) // so the logs show specified driver
-		return GetDriver(name, root, options, uidMaps, gidMaps, pg)
+		return GetDriver(name, pg, config)
 	}
 
 	// Guess for prior driver
-	driversMap := scanPriorDrivers(root)
-	for _, name := range priority {
+	driversMap := scanPriorDrivers(config.Root)
+	list := strings.Split(priority, ",")
+	logrus.Debugf("[graphdriver] priority list: %v", list)
+	for _, name := range list {
 		if name == "vfs" {
 			// don't use vfs even if there is state present.
 			continue
@@ -178,7 +210,7 @@ func New(root, name string, options []string, uidMaps, gidMaps []idtools.IDMap, 
 		if _, prior := driversMap[name]; prior {
 			// of the state found from prior drivers, check in order of our priority
 			// which we would prefer
-			driver, err := getBuiltinDriver(name, root, options, uidMaps, gidMaps)
+			driver, err := getBuiltinDriver(name, config.Root, config.DriverOptions, config.UIDMaps, config.GIDMaps)
 			if err != nil {
 				// unlike below, we will return error here, because there is prior
 				// state, and now it is no longer supported/prereq/compatible, so
@@ -196,7 +228,7 @@ func New(root, name string, options []string, uidMaps, gidMaps []idtools.IDMap, 
 					driversSlice = append(driversSlice, name)
 				}
 
-				return nil, fmt.Errorf("%s contains several valid graphdrivers: %s; Please cleanup or explicitly choose storage driver (-s <DRIVER>)", root, strings.Join(driversSlice, ", "))
+				return nil, fmt.Errorf("%s contains several valid graphdrivers: %s; Please cleanup or explicitly choose storage driver (-s <DRIVER>)", config.Root, strings.Join(driversSlice, ", "))
 			}
 
 			logrus.Infof("[graphdriver] using prior storage driver: %s", name)
@@ -205,10 +237,10 @@ func New(root, name string, options []string, uidMaps, gidMaps []idtools.IDMap, 
 	}
 
 	// Check for priority drivers first
-	for _, name := range priority {
-		driver, err := getBuiltinDriver(name, root, options, uidMaps, gidMaps)
+	for _, name := range list {
+		driver, err := getBuiltinDriver(name, config.Root, config.DriverOptions, config.UIDMaps, config.GIDMaps)
 		if err != nil {
-			if isDriverNotSupported(err) {
+			if IsDriverNotSupported(err) {
 				continue
 			}
 			return nil, err
@@ -218,9 +250,9 @@ func New(root, name string, options []string, uidMaps, gidMaps []idtools.IDMap, 
 
 	// Check all registered drivers if no priority driver is found
 	for name, initFunc := range drivers {
-		driver, err := initFunc(filepath.Join(root, name), options, uidMaps, gidMaps)
+		driver, err := initFunc(filepath.Join(config.Root, name), config.DriverOptions, config.UIDMaps, config.GIDMaps)
 		if err != nil {
-			if isDriverNotSupported(err) {
+			if IsDriverNotSupported(err) {
 				continue
 			}
 			return nil, err
@@ -230,12 +262,6 @@ func New(root, name string, options []string, uidMaps, gidMaps []idtools.IDMap, 
 	return nil, fmt.Errorf("No supported storage backend found")
 }
 
-// isDriverNotSupported returns true if the error initializing
-// the graph driver is a non-supported error.
-func isDriverNotSupported(err error) bool {
-	return err == ErrNotSupported || err == ErrPrerequisites || err == ErrIncompatibleFS
-}
-
 // scanPriorDrivers returns an un-ordered scan of directories of prior storage drivers
 func scanPriorDrivers(root string) map[string]bool {
 	driversMap := make(map[string]bool)
@@ -243,8 +269,39 @@ func scanPriorDrivers(root string) map[string]bool {
 	for driver := range drivers {
 		p := filepath.Join(root, driver)
 		if _, err := os.Stat(p); err == nil && driver != "vfs" {
-			driversMap[driver] = true
+			if !isEmptyDir(p) {
+				driversMap[driver] = true
+			}
 		}
 	}
 	return driversMap
+}
+
+// IsInitialized checks if the driver's home-directory exists and is non-empty.
+func IsInitialized(driverHome string) bool {
+	_, err := os.Stat(driverHome)
+	if os.IsNotExist(err) {
+		return false
+	}
+	if err != nil {
+		logrus.Warnf("graphdriver.IsInitialized: stat failed: %v", err)
+	}
+	return !isEmptyDir(driverHome)
+}
+
+// isEmptyDir checks if a directory is empty. It is used to check if prior
+// storage-driver directories exist. If an error occurs, it also assumes the
+// directory is not empty (which preserves the behavior _before_ this check
+// was added)
+func isEmptyDir(name string) bool {
+	f, err := os.Open(name)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	if _, err = f.Readdirnames(1); err == io.EOF {
+		return true
+	}
+	return false
 }

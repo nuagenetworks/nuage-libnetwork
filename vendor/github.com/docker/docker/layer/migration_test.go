@@ -78,7 +78,7 @@ func TestLayerMigration(t *testing.T) {
 	}
 
 	graphID1 := stringid.GenerateRandomID()
-	if err := graph.Create(graphID1, "", "", nil); err != nil {
+	if err := graph.Create(graphID1, "", nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := graph.ApplyDiff(graphID1, "", bytes.NewReader(tar1)); err != nil {
@@ -94,7 +94,7 @@ func TestLayerMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ls, err := NewStoreFromGraphDriver(fms, graph)
+	ls, err := NewStoreFromGraphDriver(fms, graph, runtime.GOOS)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,20 +110,20 @@ func TestLayerMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	layer1b, err := ls.Register(bytes.NewReader(tar1), "")
+	layer1b, err := ls.Register(bytes.NewReader(tar1), "", OS(runtime.GOOS))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	assertReferences(t, layer1a, layer1b)
 	// Attempt register, should be same
-	layer2a, err := ls.Register(bytes.NewReader(tar2), layer1a.ChainID())
+	layer2a, err := ls.Register(bytes.NewReader(tar2), layer1a.ChainID(), OS(runtime.GOOS))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	graphID2 := stringid.GenerateRandomID()
-	if err := graph.Create(graphID2, graphID1, "", nil); err != nil {
+	if err := graph.Create(graphID2, graphID1, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := graph.ApplyDiff(graphID2, graphID1, bytes.NewReader(tar2)); err != nil {
@@ -165,7 +165,7 @@ func tarFromFilesInGraph(graph graphdriver.Driver, graphID, parentID string, fil
 		return nil, err
 	}
 
-	if err := graph.Create(graphID, parentID, "", nil); err != nil {
+	if err := graph.Create(graphID, parentID, nil); err != nil {
 		return nil, err
 	}
 	if _, err := graph.ApplyDiff(graphID, parentID, bytes.NewReader(t)); err != nil {
@@ -222,7 +222,7 @@ func TestLayerMigrationNoTarsplit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ls, err := NewStoreFromGraphDriver(fms, graph)
+	ls, err := NewStoreFromGraphDriver(fms, graph, runtime.GOOS)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,7 +238,7 @@ func TestLayerMigrationNoTarsplit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	layer1b, err := ls.Register(bytes.NewReader(tar1), "")
+	layer1b, err := ls.Register(bytes.NewReader(tar1), "", OS(runtime.GOOS))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +246,7 @@ func TestLayerMigrationNoTarsplit(t *testing.T) {
 	assertReferences(t, layer1a, layer1b)
 
 	// Attempt register, should be same
-	layer2a, err := ls.Register(bytes.NewReader(tar2), layer1a.ChainID())
+	layer2a, err := ls.Register(bytes.NewReader(tar2), layer1a.ChainID(), OS(runtime.GOOS))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -320,14 +320,14 @@ func TestMountMigration(t *testing.T) {
 	containerID := stringid.GenerateRandomID()
 	containerInit := fmt.Sprintf("%s-init", containerID)
 
-	if err := graph.Create(containerInit, graphID1, "", nil); err != nil {
+	if err := graph.Create(containerInit, graphID1, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := graph.ApplyDiff(containerInit, graphID1, bytes.NewReader(initTar)); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := graph.Create(containerID, containerInit, "", nil); err != nil {
+	if err := graph.Create(containerID, containerInit, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := graph.ApplyDiff(containerID, containerInit, bytes.NewReader(mountTar)); err != nil {
@@ -380,7 +380,7 @@ func TestMountMigration(t *testing.T) {
 		Kind: archive.ChangeAdd,
 	})
 
-	if _, err := ls.CreateRWLayer("migration-mount", layer1.ChainID(), "", nil, nil); err == nil {
+	if _, err := ls.CreateRWLayer("migration-mount", layer1.ChainID(), nil); err == nil {
 		t.Fatal("Expected error creating mount with same name")
 	} else if err != ErrMountNameConflict {
 		t.Fatal(err)
