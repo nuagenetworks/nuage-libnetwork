@@ -25,15 +25,11 @@
         - context: .
           dockerfile: Dockerfile
           repository: nuage/libnetwork
-- job:
-    name: libnetwork-integration-base
-    abstract: yes
-    parent: nuage-deploy-base
-    dependencies: libnetwork-build-image
-    run: ci/run.yaml
-    post-run: ci/post.yaml
+
 - job:
     name: libnetwork-integration-centos7
-    parent: libnetwork-integration-base
-    nodeset: centos-7
-
+    parent: deployment-docker-centos-7
+    dependencies: libnetwork-build-image
+    post-run: ci/post.yaml
+    vars:
+      test_regex: 'nuage_container_tests.tests.docker'
