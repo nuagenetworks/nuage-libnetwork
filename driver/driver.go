@@ -20,6 +20,14 @@ package driver
 import (
 	"encoding/json"
 	"flag"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"path"
+	"syscall"
+	"time"
+
 	"github.com/docker/docker/pkg/plugins"
 	nuageApi "github.com/nuagenetworks/nuage-libnetwork/api"
 	"github.com/nuagenetworks/nuage-libnetwork/audit"
@@ -28,13 +36,6 @@ import (
 	"github.com/nuagenetworks/nuage-libnetwork/ipam"
 	"github.com/nuagenetworks/nuage-libnetwork/remote"
 	log "github.com/sirupsen/logrus"
-	"net"
-	"net/http"
-	"os"
-	"os/signal"
-	"path"
-	"syscall"
-	"time"
 )
 
 //NuageLibNetworkDriver contains handles to all the components
@@ -102,10 +103,8 @@ func (nuagedriver *NuageLibNetworkDriver) Run() {
 	//signal handler
 	go nuagedriver.signalHandler(channels)
 
-	select {
-	case <-channels.Stop:
-		log.Infof("Shutting down Nuage libnetwork Remote and IPAM driver plugins...")
-	}
+	<-channels.Stop
+	log.Infof("Shutting down Nuage libnetwork Remote and IPAM driver plugins...")
 	time.Sleep(1500 * time.Millisecond)
 	log.Infof("Nuage libnetwork Remote and IPAM driver plugins shutdown complete.")
 }
@@ -159,10 +158,20 @@ func (nuagedriver *NuageLibNetworkDriver) startModules(ipamServeMux, remoteServe
 	// if v2 then listen all requests on one socket. if v1 then will listen
 	// on both sockets
 	if nuagedriver.config.PluginVersion == "v1" {
-		go nuagedriver.handleSocketCalls(ipamServeMux, "nuage-ipam")
+		go func() {
+			err := nuagedriver.handleSocketCalls(ipamServeMux, "nuage-ipam")
+			if err != nil {
+				log.Errorf("Error listening to socket %s", err)
+			}
+		}()
 	}
-	go nuagedriver.handleSocketCalls(remoteServeMux, "nuage")
-	log.Debugf("Finished starting modules")
+	go func() {
+		err := nuagedriver.handleSocketCalls(remoteServeMux, "nuage")
+		if err != nil {
+			log.Errorf("Error listening to socket %s", err)
+		}
+		log.Debugf("Finished starting modules")
+	}()
 }
 
 func handleDriverActivationCalls(serveMux *http.ServeMux) {
@@ -205,7 +214,10 @@ func activate(w http.ResponseWriter, r *http.Request) {
 		log.Errorf("Marshalling JSON response failed with error: %v", err)
 		return
 	}
-	w.Write(resp)
+	_, err = w.Write(resp)
+	if err != nil {
+		log.Errorf("Could not write response due to error: %s", err)
+	}
 }
 
 func deactivate(w http.ResponseWriter, r *http.Request) {

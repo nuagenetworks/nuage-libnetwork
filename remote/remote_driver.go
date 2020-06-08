@@ -20,6 +20,10 @@ package remote
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strings"
+	"sync"
+
 	"github.com/docker/docker/pkg/plugins"
 	"github.com/docker/go-plugins-helpers/network"
 	nuageApi "github.com/nuagenetworks/nuage-libnetwork/api"
@@ -27,9 +31,6 @@ import (
 	"github.com/nuagenetworks/nuage-libnetwork/utils"
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-	"net/http"
-	"strings"
-	"sync"
 )
 
 //NuageRemoteDriver remote driver handler structure
@@ -106,7 +107,10 @@ func (nuageremote *NuageRemoteDriver) GetCapabilities(w http.ResponseWriter, req
 		return
 	}
 	log.Infof("GetCapabilities finished")
-	w.Write(content)
+	_, err = w.Write(content)
+	if err != nil {
+		log.Errorf("Could not write content due to error: %s", err)
+	}
 }
 
 // CreateNetwork creates a new Network and links it to an Existing network based on the Options given
@@ -118,7 +122,10 @@ func (nuageremote *NuageRemoteDriver) CreateNetwork(w http.ResponseWriter, req *
 		return
 	}
 	log.Debugf("Nuage remote driver create network %v called", r)
-	w.Write([]byte(utils.EmptyHTTPResponse))
+	_, err = w.Write([]byte(utils.EmptyHTTPResponse))
+	if err != nil {
+		log.Errorf("Could not write EmptyHTTPResponse due to error: %s", err)
+	}
 }
 
 // DeleteNetwork deletes a network kn Libnetwork. The corresponding network in Nuage VSD is NOT deleted.
@@ -130,19 +137,28 @@ func (nuageremote *NuageRemoteDriver) DeleteNetwork(w http.ResponseWriter, req *
 		return
 	}
 	log.Debugf("Nuage remote driver delete network %s called", r.NetworkID)
-	w.Write([]byte(utils.EmptyHTTPResponse))
+	_, err = w.Write([]byte(utils.EmptyHTTPResponse))
+	if err != nil {
+		log.Errorf("Could not write EmptyHTTPResponse due to error: %s", err)
+	}
 }
 
 // AllocateNetwork creates a new Network and links it to an Existing network based on the Options given
 func (nuageremote *NuageRemoteDriver) AllocateNetwork(w http.ResponseWriter, req *http.Request) {
 	log.Debugf("AllocateNetwork")
-	w.Write([]byte(utils.EmptyHTTPResponse))
+	_, err := w.Write([]byte(utils.EmptyHTTPResponse))
+	if err != nil {
+		log.Errorf("Could not write EmptyHTTPResponse due to error: %s", err)
+	}
 }
 
 // FreeNetwork deletes a network. The corresponding network in Nuage VSD is NOT deleted.
 func (nuageremote *NuageRemoteDriver) FreeNetwork(w http.ResponseWriter, req *http.Request) {
 	log.Debugf("FreeNetwork")
-	w.Write([]byte(utils.EmptyHTTPResponse))
+	_, err := w.Write([]byte(utils.EmptyHTTPResponse))
+	if err != nil {
+		log.Errorf("Could not write EmptyHTTPResponse due to error: %s", err)
+	}
 }
 
 // CreateEndpoint creates a new MACVLAN Endpoint
@@ -194,7 +210,10 @@ func (nuageremote *NuageRemoteDriver) CreateEndpoint(w http.ResponseWriter, req 
 		utils.HandleHTTPError(w, "Generating CreateEndpoint Response", err)
 		return
 	}
-	w.Write(content)
+	_, err = w.Write(content)
+	if err != nil {
+		log.Errorf("Could not write content due to error: %s", err)
+	}
 }
 
 // Join creates a Nuage interface to be moved to the container netns
@@ -244,7 +263,10 @@ func (nuageremote *NuageRemoteDriver) Join(w http.ResponseWriter, req *http.Requ
 		utils.HandleHTTPError(w, "Generating Join Response", err)
 		return
 	}
-	w.Write(content)
+	_, err = w.Write(content)
+	if err != nil {
+		log.Errorf("Could not write content due to error: %s", err)
+	}
 }
 
 // Leave removes a Nuage Endpoint from a container
@@ -256,7 +278,10 @@ func (nuageremote *NuageRemoteDriver) Leave(w http.ResponseWriter, req *http.Req
 		return
 	}
 	log.Infof("Leave request for endpoint %s in network %s", r.EndpointID, r.NetworkID)
-	w.Write([]byte(utils.EmptyHTTPResponse))
+	_, err = w.Write([]byte(utils.EmptyHTTPResponse))
+	if err != nil {
+		log.Errorf("Could not write EmptyHTTPResponse due to error: %s", err)
+	}
 }
 
 // DeleteEndpoint deletes a Nuage Endpoint
@@ -269,7 +294,10 @@ func (nuageremote *NuageRemoteDriver) DeleteEndpoint(w http.ResponseWriter, req 
 	}
 	log.Infof("Delete endpoint request: %v", r)
 	nuageremote.endpointIDToIntfNameMap.Write(r.EndpointID, nil)
-	w.Write([]byte(utils.EmptyHTTPResponse))
+	_, err = w.Write([]byte(utils.EmptyHTTPResponse))
+	if err != nil {
+		log.Errorf("Could not write EmptyHTTPResponse due to error: %s", err)
+	}
 }
 
 // EndpointInfo returns informatoin about a Nuage endpoint
@@ -289,7 +317,10 @@ func (nuageremote *NuageRemoteDriver) EndpointInfo(w http.ResponseWriter, req *h
 		utils.HandleHTTPError(w, "Generating EndpointInfo Response", err)
 		return
 	}
-	w.Write(content)
+	_, err = w.Write(content)
+	if err != nil {
+		log.Errorf("Could not write content due to error: %s", err)
+	}
 }
 
 // DiscoverNew is not used by local scoped drivers
@@ -301,7 +332,10 @@ func (nuageremote *NuageRemoteDriver) DiscoverNew(w http.ResponseWriter, req *ht
 		return
 	}
 	log.Infof("DiscoverNew called %v", r)
-	w.Write([]byte(utils.EmptyHTTPResponse))
+	_, err = w.Write([]byte(utils.EmptyHTTPResponse))
+	if err != nil {
+		log.Errorf("Could not write EmptyHTTPResponse due to error: %s", err)
+	}
 }
 
 // DiscoverDelete is not used by local scoped drivers
@@ -313,7 +347,10 @@ func (nuageremote *NuageRemoteDriver) DiscoverDelete(w http.ResponseWriter, req 
 		return
 	}
 	log.Infof("DiscoverDelete called %v", r)
-	w.Write([]byte(utils.EmptyHTTPResponse))
+	_, err = w.Write([]byte(utils.EmptyHTTPResponse))
+	if err != nil {
+		log.Errorf("Could not write EmptyHTTPResponse due to error: %s", err)
+	}
 }
 
 // ProgramExternalConnectivity programs external connectivity to container
@@ -325,7 +362,10 @@ func (nuageremote *NuageRemoteDriver) ProgramExternalConnectivity(w http.Respons
 		return
 	}
 	log.Infof("ProgramExternalConnectivity %v", r)
-	w.Write([]byte(utils.EmptyHTTPResponse))
+	_, err = w.Write([]byte(utils.EmptyHTTPResponse))
+	if err != nil {
+		log.Errorf("Could not write EmptyHTTPResponse due to error: %s", err)
+	}
 }
 
 // RevokeExternalConnectivity revokes external connectivity of container
@@ -337,16 +377,10 @@ func (nuageremote *NuageRemoteDriver) RevokeExternalConnectivity(w http.Response
 		return
 	}
 	log.Infof("RevokeExternalConn %v", r)
-	w.Write([]byte(utils.EmptyHTTPResponse))
-}
-
-func (nuageremote *NuageRemoteDriver) buildCache() {
-	dockerResp := nuageApi.DockerChanRequest(nuageremote.dockerChannel,
-		nuageApi.DockerGetOptsAllNetworksEvent, nil)
-	for networkID, networkParams := range dockerResp.DockerData.(map[string]*nuageConfig.NuageNetworkParams) {
-		nuageremote.networkSettingsMap.Write(networkID, networkParams)
+	_, err = w.Write([]byte(utils.EmptyHTTPResponse))
+	if err != nil {
+		log.Errorf("Could not write EmptyHTTPResponse due to error: %s", err)
 	}
-	log.Debugf("Building remote driver cache complete")
 }
 
 func (nuageremote *NuageRemoteDriver) getNetworkParams(networkID string) (*nuageConfig.NuageNetworkParams, error) {
@@ -408,7 +442,10 @@ func (nuageremote *NuageRemoteDriver) activate(w http.ResponseWriter, r *http.Re
 		log.Errorf("Marshalling JSON response failed with error: %v", err)
 		return
 	}
-	w.Write(resp)
+	_, err = w.Write(resp)
+	if err != nil {
+		log.Errorf("Could not write response due to error: %s", err)
+	}
 }
 
 func (nuageremote *NuageRemoteDriver) deactivate(w http.ResponseWriter, r *http.Request) {

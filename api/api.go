@@ -127,7 +127,6 @@ func VSDChanRequest(receiver chan *VSDEvent, event VSDEventType, params interfac
 		vsdResp.Error = fmt.Errorf("Timeout Exceeded. Request(%+v) failed.", vsdReq)
 		return vsdResp
 	}
-	return nil
 }
 
 //VRSChanRequest make a request on VRS Channel
@@ -147,7 +146,6 @@ func VRSChanRequest(receiver chan *VRSEvent, event VRSEventType, params interfac
 		vrsResp.Error = fmt.Errorf("Timeout Exceeded. Request(%+v) failed.", vrsReq)
 		return vrsResp
 	}
-	return nil
 }
 
 //DockerChanRequest make a request on VRS Channel
@@ -167,5 +165,4 @@ func DockerChanRequest(receiver chan *DockerEvent, event DockerEventType, params
 		dockerResp.Error = fmt.Errorf("Timeout Exceeded. Request(%+v) failed.", dockerReq)
 		return dockerResp
 	}
-	return nil
 }

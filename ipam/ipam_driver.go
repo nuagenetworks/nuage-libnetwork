@@ -20,6 +20,11 @@ package ipam
 import (
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
+	"strings"
+	"sync"
+
 	"github.com/docker/docker/pkg/plugins"
 	"github.com/docker/go-plugins-helpers/ipam"
 	"github.com/docker/libnetwork/ipamapi"
@@ -27,10 +32,6 @@ import (
 	nuageConfig "github.com/nuagenetworks/nuage-libnetwork/config"
 	"github.com/nuagenetworks/nuage-libnetwork/utils"
 	log "github.com/sirupsen/logrus"
-	"net"
-	"net/http"
-	"strings"
-	"sync"
 )
 
 // NuageIPAMDriver Ipam Driver structure
@@ -88,7 +89,11 @@ func (nuageipam *NuageIPAMDriver) GetCapabilities(w http.ResponseWriter, req *ht
 		return
 	}
 	log.Infof("GetCapabilities finished")
-	w.Write(content)
+	_, err = w.Write(content)
+	if err != nil {
+		log.Errorf("Could not write contents due to error: %s", err)
+	}
+
 }
 
 //GetDefaultAddressSpaces returns the default address space
@@ -103,7 +108,10 @@ func (nuageipam *NuageIPAMDriver) GetDefaultAddressSpaces(w http.ResponseWriter,
 		utils.HandleHTTPError(w, "Generating GetDefaultAddressSpaces Response", err)
 		return
 	}
-	w.Write(content)
+	_, err = w.Write(content)
+	if err != nil {
+		log.Errorf("Could not write contents due to error: %s", err)
+	}
 }
 
 // RequestPool allocates a new pool
@@ -158,7 +166,10 @@ func (nuageipam *NuageIPAMDriver) RequestPool(w http.ResponseWriter, req *http.R
 		utils.HandleHTTPError(w, "Generating RequestPool Response", err)
 		return
 	}
-	w.Write(content)
+	_, err = w.Write(content)
+	if err != nil {
+		log.Errorf("Could not write contents due to error: %s", err)
+	}
 }
 
 // ReleasePool releases a pool of ip addresses
@@ -184,7 +195,10 @@ func (nuageipam *NuageIPAMDriver) ReleasePool(w http.ResponseWriter, req *http.R
 	nuageipam.vsdNetworkMap.Write(r.PoolID, nil)
 	log.Infof("Pool under id %v is released", r.PoolID)
 
-	w.Write([]byte(utils.EmptyHTTPResponse))
+	_, err = w.Write([]byte(utils.EmptyHTTPResponse))
+	if err != nil {
+		log.Errorf("Could not write response due to error: %s", err)
+	}
 }
 
 //RequestAddress allocates an ip address
@@ -234,7 +248,10 @@ func (nuageipam *NuageIPAMDriver) RequestAddress(w http.ResponseWriter, req *htt
 		utils.HandleHTTPError(w, "Generating RequestAddress Response", err)
 		return
 	}
-	w.Write(content)
+	_, err = w.Write(content)
+	if err != nil {
+		log.Errorf("Could not write content due to error: %s", err)
+	}
 }
 
 //ReleaseAddress releases an ip address
@@ -266,7 +283,10 @@ func (nuageipam *NuageIPAMDriver) ReleaseAddress(w http.ResponseWriter, req *htt
 	}
 
 	log.Infof("released address = %v under poolID = %v", r.Address, r.PoolID)
-	w.Write([]byte(utils.EmptyHTTPResponse))
+	_, err = w.Write([]byte(utils.EmptyHTTPResponse))
+	if err != nil {
+		log.Errorf("Could not write EmptyHTTPResponse due to error: %s", err)
+	}
 }
 
 //GateWayAddressRequest function takes of gateway and default ip assignment
@@ -305,10 +325,10 @@ func (nuageipam *NuageIPAMDriver) getNetworkInfo(poolID, source string) (*nuageC
 	nuageipam.Lock()
 	defer nuageipam.Unlock()
 	log.Debugf("fetching network info for pool id %s", poolID)
-	networkInfo, ok := nuageipam.vsdNetworkMap.Read(poolID)
+	networkMapReadInfo, ok := nuageipam.vsdNetworkMap.Read(poolID)
 	if !ok {
 		networkParamsHash := strings.Split(poolID, "-")
-		networkInfo := &nuageConfig.NuageNetworkParams{}
+		var networkInfo *nuageConfig.NuageNetworkParams
 		if source == "vrs" {
 			vrsResp := nuageApi.VRSChanRequest(nuageipam.vrsChannel,
 				nuageApi.VRSPoolIDNetworkOptsEvent, networkParamsHash[0])
@@ -339,7 +359,7 @@ func (nuageipam *NuageIPAMDriver) getNetworkInfo(poolID, source string) (*nuageC
 		nuageipam.vsdNetworkMap.Write(poolID, networkInfo)
 		return networkInfo, nil
 	}
-	return networkInfo.(*nuageConfig.NuageNetworkParams), nil
+	return networkMapReadInfo.(*nuageConfig.NuageNetworkParams), nil
 }
 
 func (nuageipam *NuageIPAMDriver) activate(w http.ResponseWriter, r *http.Request) {
@@ -349,7 +369,10 @@ func (nuageipam *NuageIPAMDriver) activate(w http.ResponseWriter, r *http.Reques
 		log.Errorf("Marshalling JSON response failed with error: %v", err)
 		return
 	}
-	w.Write(resp)
+	_, err = w.Write(resp)
+	if err != nil {
+		log.Errorf("Could not write EmptyHTTPResponse due to error: %s", err)
+	}
 }
 
 func (nuageipam *NuageIPAMDriver) deactivate(w http.ResponseWriter, r *http.Request) {

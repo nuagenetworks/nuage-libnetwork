@@ -21,6 +21,11 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"os/exec"
+	"regexp"
+	"strings"
+	"time"
+
 	"github.com/docker/docker/api/types"
 	vrsSDK "github.com/nuagenetworks/libvrsdk/api"
 	"github.com/nuagenetworks/libvrsdk/api/entity"
@@ -30,10 +35,6 @@ import (
 	"github.com/nuagenetworks/nuage-libnetwork/utils"
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-	"os/exec"
-	"regexp"
-	"strings"
-	"time"
 )
 
 //NuageVRSClient contains the relavent data to hold VRS client
@@ -458,7 +459,6 @@ func (nvrsc *NuageVRSClient) makeVRSCall(vrsMethod func() ([]byte, error)) {
 		<-nvrsc.connectionActive
 		nvrsc.makeVRSCall(vrsMethod)
 	}
-	return
 }
 
 func (nvrsc *NuageVRSClient) makeVRSSDKCall(vrsMethod func() error) {
@@ -469,7 +469,6 @@ func (nvrsc *NuageVRSClient) makeVRSSDKCall(vrsMethod func() error) {
 		<-nvrsc.connectionActive
 		nvrsc.makeVRSSDKCall(vrsMethod)
 	}
-	return
 }
 
 func connectToVRS(socketFile string) (vrsSDK.VRSConnection, error) {

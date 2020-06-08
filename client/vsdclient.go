@@ -492,7 +492,6 @@ func (nuagevsd *NuageVSDClient) fetchVSDContainerList() (vspk.ContainersList, er
 					containerFetchingInfo.Page++
 				}
 			}
-			return nil
 		}, "fetching container list")
 	if err != nil {
 		return vsdContainerList, fmt.Errorf("fetching container list from VSD failed with error: %v after all retries", err)
@@ -759,7 +758,11 @@ func (nuagevsd *NuageVSDClient) cleanupStaleHostPorts() {
 
 	for _, link := range allHostPorts {
 		linkName := link.Attrs().Name
-		if ok, err := regexp.MatchString(nuageConfig.BasePrefix, linkName); err != nil || !ok {
+		r, err := regexp.Compile(linkName)
+		if err != nil {
+			log.Errorf("Could not compile regex for linkname %s with err: %s", linkName, err)
+		}
+		if ok := r.MatchString(nuageConfig.BasePrefix); err != nil || !ok {
 			continue
 		}
 
@@ -789,7 +792,11 @@ func (nuagevsd *NuageVSDClient) getInitialSequenceNumber() int {
 
 	for _, link := range allHostPorts {
 		linkName := link.Attrs().Name
-		if ok, err := regexp.MatchString(nuageConfig.BasePrefix, linkName); err != nil || !ok {
+		r, err := regexp.Compile(linkName)
+		if err != nil {
+			log.Errorf("Could not compile regex for linkname %s with err: %s", linkName, err)
+		}
+		if ok := r.MatchString(nuageConfig.BasePrefix); err != nil || !ok {
 			continue
 		}
 

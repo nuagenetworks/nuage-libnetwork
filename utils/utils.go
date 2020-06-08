@@ -22,12 +22,13 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 )
 
 //HashMap synchronized hash map
@@ -60,7 +61,6 @@ func (h *HashMap) Write(key string, value interface{}) {
 	} else {
 		h.table[key] = value
 	}
-	return
 }
 
 //GetKeys given keys in a map

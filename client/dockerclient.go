@@ -127,7 +127,6 @@ func (nuagedocker *NuageDockerClient) CheckNetworkList(nuageParams *nuageConfig.
 
 //GetNetworkOptsFromPoolID fetches network options for a given docker network
 func (nuagedocker *NuageDockerClient) GetNetworkOptsFromPoolID(poolID string) (*nuageConfig.NuageNetworkParams, error) {
-	networkOpts := &nuageConfig.NuageNetworkParams{}
 	networkList, err := nuagedocker.dockerNetworkList()
 	if err != nil {
 		log.Errorf("Retrieving existing networks from docker failed with error: %v", err)
@@ -137,7 +136,7 @@ func (nuagedocker *NuageDockerClient) GetNetworkOptsFromPoolID(poolID string) (*
 		if network.IPAM.Options == nil || len(network.IPAM.Config) == 0 {
 			continue
 		}
-		networkOpts = nuageConfig.ParseNuageParams(network.IPAM.Options)
+		networkOpts := nuageConfig.ParseNuageParams(network.IPAM.Options)
 		networkOpts.SubnetCIDR = network.IPAM.Config[0].Subnet
 		if poolID == nuageConfig.MD5Hash(networkOpts) {
 			return networkOpts, nil
@@ -255,7 +254,6 @@ func (nuagedocker *NuageDockerClient) buildCache() {
 		}
 		nuagedocker.networkParamsTable.Write(network.ID, networkParams)
 	}
-	return
 }
 
 func (nuagedocker *NuageDockerClient) dockerNetworkList() ([]types.NetworkResource, error) {
@@ -387,9 +385,11 @@ func (nuagedocker *NuageDockerClient) handleConnectionRetry() {
 	if _, err := nuagedocker.dclient.Ping(context.Background()); err != nil {
 		log.Errorf("Ping to docker host failed with error = %v. trying to reconnect", err)
 		log.Errorf("will try to reconnect in every 3 seconds")
-		var err error
 		for {
 			nuagedocker.dclient, err = connectToDockerDaemon(nuagedocker.socketFile)
+			if err != nil {
+				log.Errorf("Connection to docker using sockerfile failed: %s", err)
+			}
 			_, err = nuagedocker.dclient.Ping(context.Background())
 			if err != nil {
 				time.Sleep(3 * time.Second)
@@ -432,7 +432,6 @@ func (nuagedocker *NuageDockerClient) executeDockerCommand(dockerCommand func() 
 		nuagedocker.executeDockerCommand(dockerCommand)
 		return
 	}
-	return
 }
 
 func isDockerConnectionError(errMsg string) bool {

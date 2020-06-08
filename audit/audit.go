@@ -18,9 +18,10 @@
 package audit
 
 import (
+	"time"
+
 	nuageApi "github.com/nuagenetworks/nuage-libnetwork/api"
 	log "github.com/sirupsen/logrus"
-	"time"
 )
 
 //NuageAudit contains channels for audit
@@ -44,11 +45,7 @@ func NewNuageAudit(channels *nuageApi.NuageLibNetworkChannels) *NuageAudit {
 func (audit *NuageAudit) Start() {
 	//run it onnce at beginning
 	audit.periodicAudit()
-
-	select {
-	case <-audit.stop:
-		return
-	}
+	<-audit.stop
 }
 
 // runs audit every 12 hours

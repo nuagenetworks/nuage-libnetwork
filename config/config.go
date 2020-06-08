@@ -20,13 +20,14 @@ package config
 import (
 	"crypto/md5"
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"gopkg.in/natefinch/lumberjack.v2"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"path"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
+	"gopkg.in/natefinch/lumberjack.v2"
+	"gopkg.in/yaml.v2"
 )
 
 //Config data used across packages
@@ -227,18 +228,6 @@ func SetLogLevel(conf *NuageLibNetworkConfig) {
 		MaxAge:   30,
 	})
 	log.SetLevel(supportedLogLevels[strings.ToLower(conf.LogLevel)])
-}
-
-func createFile(dir, file string) (*os.File, error) {
-	err := os.MkdirAll(dir, 0700)
-	if err != nil {
-		return nil, err
-	}
-	handle, err := os.Create(file)
-	if err != nil {
-		return nil, err
-	}
-	return handle, nil
 }
 
 //Format custom format method used by logrus. Prints in standard nuage log format

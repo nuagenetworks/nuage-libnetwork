@@ -3,14 +3,12 @@
       - golang-jobs
     check:
       jobs:
-        - golang-lint:
-            voting: false
+        - golang-lint
         - libnetwork-build-image
         - libnetwork-integration-centos7
     gate:
       jobs:
-        - golang-lint:
-            voting: false
+        - golang-lint
         - libnetwork-build-image
         - libnetwork-integration-centos7
 - job:
