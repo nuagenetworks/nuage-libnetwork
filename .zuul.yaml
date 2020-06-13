@@ -17,6 +17,8 @@
     name: libnetwork-build-image
     parent: nuage-build-docker-image
     nodeset: centos-7
+    required-projects:
+      - nuagenetworks/nuage-libnetwork
     vars:
       vsp_release: "{{ nuage_vsp_release }}"
       zuul_work_dir: "{{ ansible_user_dir }}/src/github.com"
