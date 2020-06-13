@@ -19,10 +19,10 @@
     nodeset: centos-7
     vars:
       vsp_release: "{{ nuage_vsp_release }}"
-      zuul_work_dir: "{{ ansible_user_dir }}/src/github.com/{{ zuul.project.name }}"
+      zuul_work_dir: "{{ ansible_user_dir }}/src/github.com"
       container_command: docker
       docker_images:
-        - context: .
+        - context: nuagenetworks/nuage-libnetwork
           go_task: build
           dockerfile: Dockerfile
           repository: nuage/libnetwork
