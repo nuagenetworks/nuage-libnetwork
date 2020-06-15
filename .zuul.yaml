@@ -18,7 +18,7 @@
     required-projects:
       - nuagenetworks/nuage-libnetwork
     vars:
-      vsp_release: "{{ nuage_vsp_release }}"
+      vsp_release: "6.0"
       zuul_work_dir: "{{ ansible_user_dir }}/src/github.com"
       container_command: docker
       docker_images:
@@ -33,4 +33,5 @@
     dependencies: libnetwork-build-image
     post-run: ci/post.yaml
     vars:
+      vsp_release: "6.0"
       test_regex: 'nuage_container_tests.tests.docker'
