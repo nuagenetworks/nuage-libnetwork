@@ -14,7 +14,7 @@
     periodic:
       jobs:
         - libnetwork-build-image
-        - libnetwork-integration-centos7
+        - libnetwork-integration-centos7-rpm
 - job:
     name: libnetwork-build-image
     parent: nuage-build-docker-image
@@ -37,4 +37,11 @@
     dependencies: libnetwork-build-image
     post-run: ci/post.yaml
     vars:
+      libnetwork_deployment: container
       test_regex: 'nuage_container_tests.tests.docker'
+
+- job:
+    name: libnetwork-integration-centos7-rpm
+    parent: libnetwork-integration-centos7
+    vars:
+      libnetwork_deployment: rpm
