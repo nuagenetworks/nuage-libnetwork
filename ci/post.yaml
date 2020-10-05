@@ -4,8 +4,15 @@
       file:
         path: "{{ ansible_user_dir }}/zuul-output/logs/{{ container_command }}"
         state: directory
-    - name: Dump libnetwork log
+    - name: Dump libnetwork container log
       become: yes
       command: >
         docker cp libnetwork:/var/log/nuage-libnetwork/nuage-libnetwork.log
         {{ ansible_user_dir }}/zuul-output/logs/{{ container_command }}
+      when: libnetwork_deployment == 'container'
+    - name: Dump libnetwork service log
+      become: yes
+      command: >
+        cp /var/log/nuage-libnetwork/nuage-libnetwork.log
+        {{ ansible_user_dir }}/zuul-output/logs/{{ container_command }}
+      when: libnetwork_deployment == 'rpm'

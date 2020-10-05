@@ -11,6 +11,9 @@
         - golang-lint
         - libnetwork-build-image
         - libnetwork-integration-centos7
+    periodic:
+      jobs:
+        - libnetwork-integration-centos7-rpm
 - job:
     name: libnetwork-build-image
     parent: nuage-build-docker-image
@@ -34,4 +37,13 @@
     post-run: ci/post.yaml
     vars:
       vsp_release: "6.0"
+      libnetwork_deployment: container
+      test_regex: 'nuage_container_tests.tests.docker'
+
+- job:
+    name: libnetwork-integration-centos7-rpm
+    parent: deployment-docker-centos-7
+    post-run: ci/post.yaml
+    vars:
+      libnetwork_deployment: rpm
       test_regex: 'nuage_container_tests.tests.docker'
