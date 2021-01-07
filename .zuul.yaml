@@ -45,5 +45,6 @@
     parent: deployment-docker-centos-7
     post-run: ci/post.yaml
     vars:
+      vsp_release: "6.0"
       libnetwork_deployment: rpm
       test_regex: 'nuage_container_tests.tests.docker'
