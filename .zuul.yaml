@@ -11,9 +11,7 @@
         - golang-lint
         - libnetwork-build-image
         - libnetwork-integration-centos7
-    periodic:
-      jobs:
-        - libnetwork-integration-centos7-rpm
+
 - job:
     name: libnetwork-build-image
     parent: nuage-build-docker-image
